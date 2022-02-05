@@ -4,7 +4,14 @@
   (:require
     [spade.core   :refer [defglobal defclass]]
     [garden.units :refer [deg px]]
-    [garden.color :refer [rgba]]))
+    [garden.color :refer [rgba]]
+    [garden.core :as garden]))
+
+(comment
+
+  (garden/css [:body {:font-size "16px"}])
+
+)
 
 (defcssfn linear-gradient
  ([c1 p1 c2 p2]
@@ -14,9 +21,9 @@
 
 (defglobal defaults
   [:body
-   {:color               :red
-    :background-color    :#ddd
-    :background-image    [(linear-gradient :white (px 2) :transparent (px 2))
+   {:color               :black
+    #_#_:background-color    :#ddd
+    #_#_:background-image    [(linear-gradient :white (px 2) :transparent (px 2))
                           (linear-gradient (deg 90) :white (px 2) :transparent (px 2))
                           (linear-gradient (rgba 255 255 255 0.3) (px 1) :transparent (px 1))
                           (linear-gradient (deg 90) (rgba 255 255 255 0.3) (px 1) :transparent (px 1))]
@@ -25,4 +32,11 @@
 
 (defclass level1
   []
-  {:color :green})
+  {:color :black})
+
+(defclass widget
+  []
+  {
+   ;:padding "3em"
+   :color :red
+   })

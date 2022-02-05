@@ -7,8 +7,7 @@
    [dativerf.routes :as routes]
    [dativerf.views :as views]
    [dativerf.config :as config]
-   ))
-
+   day8.re-frame.http-fx))
 
 (defn dev-setup []
   (when config/debug?
