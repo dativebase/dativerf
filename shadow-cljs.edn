@@ -43,4 +43,8 @@
    :release
    {:build-options
     {:ns-aliases
-     {day8.re-frame.tracing day8.re-frame.tracing-stubs}}}}}}
+     {day8.re-frame.tracing day8.re-frame.tracing-stubs}}}}
+  :test
+  {:target :node-test
+   :output-to "out/node-tests.js"
+   :autorun false}}}
