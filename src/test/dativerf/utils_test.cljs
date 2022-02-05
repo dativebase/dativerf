@@ -3,7 +3,7 @@
             [dativerf.utils :as sut]))
 
 (t/deftest ->kebab-case-recursive-works
-  (t/is (= {:some-key 2
+  (t/is (= {:some-kZZZZZZey 2
             :some-other-key
             [2
              {:another-key "abc"
