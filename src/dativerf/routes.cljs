@@ -11,7 +11,8 @@
 (def routes
   (atom
     ["/" {""      :home
-          "about" :about}]))
+          "about" :about
+          "login" :login}]))
 
 (defn parse
   [url]
@@ -33,8 +34,7 @@
   [handler]
   (pushy/set-token! history (url-for handler)))
 
-(defn start!
-  []
+(defn start! []
   (pushy/start! history))
 
 (re-frame/reg-fx

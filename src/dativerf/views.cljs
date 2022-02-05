@@ -5,51 +5,9 @@
    [dativerf.styles :as styles]
    [dativerf.events :as events]
    [dativerf.routes :as routes]
-   [dativerf.subs :as subs]))
-
-
-
-;; home
-
-(defn display-re-pressed-example []
-  (let [re-pressed-example (re-frame/subscribe [::subs/re-pressed-example])]
-    [:div
-
-     [:p
-      [:span "Re-pressed is listening for keydown events. A message will be displayed when you type "]
-      [:strong [:code "hello"]]
-      [:span ". So go ahead, try it out!"]]
-
-     (when-let [rpe @re-pressed-example]
-       [re-com/alert-box
-        :src        (at)
-        :alert-type :info
-        :body       rpe])]))
-
-(defn home-title []
-  (let [name (re-frame/subscribe [::subs/name])]
-    [re-com/title
-     :src   (at)
-     :label (str "Hello from " @name ". This is the Home Page." )
-     :level :level1
-     :class (styles/level1)]))
-
-(defn link-to-about-page []
-  [re-com/hyperlink
-   :src      (at)
-   :label    "go to About Page"
-   :on-click #(re-frame/dispatch [::events/navigate :about])])
-
-(defn home-panel []
-  [re-com/v-box
-   :src      (at)
-   :gap      "1em"
-   :children [[home-title]
-              [link-to-about-page]
-              [display-re-pressed-example]]])
-
-
-(defmethod routes/panels :home-panel [] [home-panel])
+   [dativerf.subs :as subs]
+   dativerf.views.home
+   dativerf.views.login))
 
 ;; about
 
