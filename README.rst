@@ -79,4 +79,4 @@ Then visit `http://0.0.0.0:8000/`_ to visit the production build of the app.
 .. _`http://0.0.0.0:8000/`: http://0.0.0.0:8000/
 .. _Leiningen: https://leiningen.org/
 .. _`Online Linguistic Database`: https://www.onlinelinguisticdatabase.org/
-
+.. _ClojureScript: https://clojurescript.org/
