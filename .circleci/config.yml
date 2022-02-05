@@ -79,10 +79,6 @@ jobs:
 
 workflows:
   version: 2
-  test:
-    jobs:
-      - test
-  deploy:
   test-build-and-deploy:
     jobs:
       - test
