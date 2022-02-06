@@ -1,42 +1,6 @@
 version: 2.1
 
 jobs:
-  build:
-    docker:
-      - image: circleci/openjdk:8-jdk-node-browsers
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-          - dependencies-{{ checksum "package.json" }}--{{ checksum "shadow-cljs.edn"}}
-      - run:
-          name: Install Clojure, via curl
-          command: curl -O https://download.clojure.org/install/linux-install-1.10.0.442.sh && chmod +x linux-install-1.10.0.442.sh && sudo ./linux-install-1.10.0.442.sh
-      - run:
-          name: Install JavaScript dependencies, via NPM
-          command: npm install
-      - run:
-          name: Compute Classpath, via clj
-          command: clojure -Spath
-      - run:
-          name: Compile ClojureScript, via shadow-cljs
-          command: npm run release
-      #- run:
-      #    name: Deploy
-      #    command: TODO run deploy script in VM
-      - run:
-          name: Log on Error
-          command: cat target/shadow-cljs/shadow-cljs.log.0 2> /dev/null
-          when: on_fail
-      - save_cache:
-          paths:
-            - ~/project/node_modules
-            - ~/project/target
-            - ~/project/.shadow-cljs
-            - ~/project/.cpcache
-            - ~/.m2
-            - ~/.clojure/.cpcache
-          key: dependencies-{{ checksum "package.json" }}--{{ checksum "shadow-cljs.edn"}}
 
   test:
     docker:
@@ -72,8 +36,60 @@ jobs:
             - ~/.clojure/.cpcache
           key: dependencies-{{ checksum "package.json" }}--{{ checksum "shadow-cljs.edn"}}
 
+  build-and-deploy:
+    docker:
+      - image: circleci/openjdk:8-jdk-node-browsers
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+          - dependencies-{{ checksum "package.json" }}--{{ checksum "shadow-cljs.edn"}}
+      - run:
+          name: Install Clojure, via curl
+          command: curl -O https://download.clojure.org/install/linux-install-1.10.0.442.sh && chmod +x linux-install-1.10.0.442.sh && sudo ./linux-install-1.10.0.442.sh
+      - run:
+          name: Install JavaScript dependencies, via NPM
+          command: npm install
+      - run:
+          name: Compute Classpath, via clj
+          command: clojure -Spath
+      - run:
+          name: Compile ClojureScript via shadow-cljs
+          command: npm run release
+      - add_ssh_keys:
+          fingerprints:
+            - "61:86:c2:68:47:d0:5e:4d:c8:ea:a6:15:b5:15:1c:15"
+      - run:
+          name: Install rsync
+          command: sudo apt install rsync
+      - run:
+          name: Copy build artifacts to production server
+          command: rsync -avce "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" --progress resources/public $DROPLET_USER@$DROPLET_IP:/home/jrwdunham/apps/dativerf
+      - run:
+          name: Log on Error
+          command: cat target/shadow-cljs/shadow-cljs.log.0 2> /dev/null
+          when: on_fail
+      - save_cache:
+          paths:
+            - ~/project/node_modules
+            - ~/project/target
+            - ~/project/.shadow-cljs
+            - ~/project/.cpcache
+            - ~/.m2
+            - ~/.clojure/.cpcache
+          key: dependencies-{{ checksum "package.json" }}--{{ checksum "shadow-cljs.edn"}}
+
+
 workflows:
   version: 2
-  test:
+  test-build-and-deploy:
     jobs:
       - test
+      - build-and-deploy:
+          requires:
+            - test
+          context:
+            - General
+          filters:
+            branches:
+              only: main
