@@ -12,7 +12,8 @@
   (atom
     ["/" {""      :home
           "about" :about
-          "login" :login}]))
+          "login" :login
+          "profile" :profile}]))
 
 (defn parse
   [url]

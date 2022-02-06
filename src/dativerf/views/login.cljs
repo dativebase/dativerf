@@ -99,6 +99,14 @@
     :disabled? @(re-frame/subscribe [:login/logout-button-disabled?])
     :on-click (fn [_e] (re-frame/dispatch [::events/user-clicked-logout]))]])
 
+(defn user-profile []
+      [re-com/box
+       :child
+       [re-com/button
+        :label (:user "temp" ;TODO: get actual user name
+                 )
+        :on-click #(re-frame/dispatch [::events/navigate :profile])]])
+
 (defn login-panel []
   [re-com/v-box
    :src (at)
