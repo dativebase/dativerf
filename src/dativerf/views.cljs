@@ -7,7 +7,8 @@
    [dativerf.routes :as routes]
    [dativerf.subs :as subs]
    dativerf.views.home
-   dativerf.views.login))
+   dativerf.views.login
+   dativerf.views.profile))
 
 ;; about
 
