@@ -18,18 +18,24 @@
 
 (re-frame/reg-event-fx
  ::navigate
- (fn-traced [_ [_ handler]]
-            {:navigate handler}))
+ (fn-traced [_ [_ handler]] {:navigate handler}))
 
 (re-frame/reg-event-fx
- ::set-active-panel
- (fn-traced [{:keys [db]} [_ active-panel]]
-   {:db (assoc db :active-panel active-panel)
+ ::set-active-tab
+ (fn-traced [{:keys [db]} [_ active-tab]]
+   {:db (assoc db :active-tab active-tab)
     :dispatch [::rp/set-keydown-rules
                {:event-keys [[[:shortcut/home]
-                              [{:keyCode 72}]]
+                              [{:keyCode 72}]] ;; h
                              [[:shortcut/login]
-                              [{:keyCode 76}]]]
+                              [{:keyCode 76}]] ;; l
+                             [[:shortcut/forms]
+                              [{:keyCode 66}]] ;; b
+                             [[:shortcut/files]
+                              [{:keyCode 70}]] ;; f
+                             [[:shortcut/collections]
+                              [{:keyCode 73}]] ;; i
+                             ]
                 :clear-keys
                 [[{:keyCode 27}]]}]}))
 
@@ -48,7 +54,21 @@
 
 (re-frame/reg-event-fx
  :shortcut/login
- (fn-traced [cofx _] {:fx [[:dispatch [::navigate :login]]]}))
+ (fn-traced [{:keys [db]} _] {:fx [[:dispatch [::navigate (if (:user db)
+                                                            :logout
+                                                            :login)]]]}))
+
+(re-frame/reg-event-fx
+ :shortcut/forms
+ (fn-traced [_cofx _] {:fx [[:dispatch [::navigate :forms]]]}))
+
+(re-frame/reg-event-fx
+ :shortcut/files
+ (fn-traced [_cofx _] {:fx [[:dispatch [::navigate :files]]]}))
+
+(re-frame/reg-event-fx
+ :shortcut/collections
+ (fn-traced [_cofx _] {:fx [[:dispatch [::navigate :collections]]]}))
 
 ;; Login Page/Form Events
 
@@ -156,7 +176,8 @@
                   (fsms/update-state login/state-machine :login/state event)
                   (assoc :user (utils/->kebab-case-recursive user)
                          :login/username ""
-                         :login/password ""))
+                         :login/password ""
+                         :active-tab :forms))
               (-> db
                   (fsms/update-state login/state-machine :login/state
                                      ::server-not-authenticated)
@@ -174,7 +195,8 @@
  ::server-deauthenticated
  (fn-traced [db [event _]]
             (-> db
-                (assoc :user nil)
+                (assoc :user nil
+                       :active-tab :login)
                 (transition-login-fsm event))))
 
 (re-frame/reg-event-db
@@ -182,5 +204,6 @@
  (fn-traced [db [event _]]
             (println "WARNING: Failed to logout of OLD.")
             (-> db
-                (assoc :user nil)
+                (assoc :user nil
+                       :active-tab :login)
                 (transition-login-fsm event))))
