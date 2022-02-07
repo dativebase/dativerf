@@ -99,27 +99,28 @@
     :disabled? @(re-frame/subscribe [:login/logout-button-disabled?])
     :on-click (fn [_e] (re-frame/dispatch [::events/user-clicked-logout]))]])
 
+;; TODO: (first_name :user) get actual user name
 (defn user-profile []
-      [re-com/box
-       :child
-       [re-com/button
-        :label (:user "temp" ;TODO: get actual user name
-                 )
-        :on-click #(re-frame/dispatch [::events/navigate :profile])]])
+      [re-com/hyperlink
+       :src (at)
+       :label @(re-frame/subscribe [:login/user-name])
+       :disabled? @(re-frame/subscribe [:login/user-name-visible?])
+       :on-click #(re-frame/dispatch [::events/navigate :profile])])
 
 (defn login-panel []
-  [re-com/v-box
-   :src (at)
-   :gap "1em"
-   :padding "1em"
-   :children [[login-title]
-              [link-to-home-page]
-              [old-instance-select]
-              [username-input]
-              [password-input]
-              [re-com/h-box
-               :children [[login-button]
-                          [logout-button]]
-               :gap "5px"]]])
+      [re-com/v-box
+       :src (at)
+       :gap " 1em "
+       :padding " 1em "
+       :children [[login-title]
+                  [link-to-home-page]
+                  [user-profile]
+                  [old-instance-select]
+                  [username-input]
+                  [password-input]
+                  [re-com/h-box
+                   :children [[login-button]
+                              [logout-button]]
+                   :gap " 5px "]]])
 
 (defmethod routes/panels :login-panel [] [login-panel])

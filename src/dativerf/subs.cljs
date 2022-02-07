@@ -42,11 +42,26 @@
      [nil])))
 
 (re-frame/reg-sub
- :login/login-button-disabled?
- :<- [:login/state]
- (fn [login-state _] (not= login-state ::login/is-ready)))
+  :login/login-button-disabled?
+  :<- [:login/state]
+  (fn [login-state _] (not= login-state ::login/is-ready)))
 
 (re-frame/reg-sub
- :login/logout-button-disabled?
- :<- [:login/state]
- (fn [login-state _] (not= login-state ::login/user-is-authenticated)))
+  :login/logout-button-disabled?
+  :<- [:login/state]
+  (fn [login-state _] (not= login-state ::login/user-is-authenticated)))
+
+(re-frame/reg-sub
+  :login/user-name-visible?
+  :<- [:login/state]
+  (fn [login-state _] (not= login-state ::login/user-is-authenticated)))
+
+(re-frame/reg-sub
+  :login/user-name
+  :<- [:login/state]
+  :<- [:login/user]
+  (fn [[login-state user] _]
+      (case login-state
+            ::login/user-is-authenticated "user's name"
+            "Logged Out")))
+
