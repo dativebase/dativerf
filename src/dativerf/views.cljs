@@ -30,6 +30,7 @@
 
 (def menu-tabs
   [{:id :home :label "Home" :authenticated? nil}
+   {:id :profile :label "Profile" :authenticated? true}
    {:id :forms :label "Forms" :authenticated? true}
    {:id :files :label "Files" :authenticated? true}
    {:id :collections :label "Collections" :authenticated? true}

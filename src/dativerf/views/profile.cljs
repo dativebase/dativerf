@@ -9,15 +9,25 @@
 
 (defn user-title []
       [re-com/title
-       :src   (at)
-       :label "Hi ..."
-       :level :level1])
+       :src (at)
+       :label "Profile"
+       :level :level2])
 
-(defn profile-panel []
+(defn user-info []
+      (let [user @(re-frame/subscribe [:profile/user-info])]
+           [:ul
+            [:li (str [(:first-name user) (:last-name user)])]
+            [:li (:email user)]]
+           ))
+
+(defn profile-tab []
       [re-com/v-box
        :src (at)
        :gap "1em"
        :padding "1em"
-       :children [user-title]])
+       :children [
+                  [user-title]
+                  ;;[user-info]
+                  ]])
 
-(defmethod routes/panels :profile-panel [] [profile-panel])
+(defmethod routes/tabs :profile [] [profile-tab])

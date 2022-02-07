@@ -112,6 +112,7 @@
                :children [[login-button]
                           [logout-button]]
                :gap "5px"]]])
+
 (defn user-profile []
       [re-com/hyperlink
        :src (at)
@@ -126,7 +127,7 @@
        :padding " 1em "
        :children [[login-title]
                   [link-to-home-page]
-                  [user-profile]
+                  ;;[user-profile]
                   [old-instance-select]
                   [username-input]
                   [password-input]
