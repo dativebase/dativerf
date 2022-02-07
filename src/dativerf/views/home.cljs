@@ -1,11 +1,7 @@
 (ns dativerf.views.home
   (:require
-   [re-frame.core :as re-frame]
    [re-com.core :as re-com :refer [at]]
-   [dativerf.styles :as styles]
-   [dativerf.events :as events]
-   [dativerf.routes :as routes]
-   [dativerf.subs :as subs]))
+   [dativerf.routes :as routes]))
 
 (defn home-title []
   [re-com/title

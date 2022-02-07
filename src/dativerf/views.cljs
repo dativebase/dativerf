@@ -10,8 +10,7 @@
    dativerf.views.login))
 
 (defn title []
-  (let [name @(re-frame/subscribe [::subs/name])
-        user @(re-frame/subscribe [::subs/user])
+  (let [user @(re-frame/subscribe [::subs/user])
         old-id @(re-frame/subscribe [::subs/old])
         olds @(re-frame/subscribe [::subs/olds])
         old-name (some->> olds

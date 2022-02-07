@@ -51,7 +51,7 @@
 
 (re-frame/reg-event-fx
  :shortcut/home
- (fn-traced [cofx _] {:fx [[:dispatch [::navigate :home]]]}))
+ (fn-traced [_ _] {:fx [[:dispatch [::navigate :home]]]}))
 
 (re-frame/reg-event-fx
  :shortcut/login
@@ -109,7 +109,7 @@
 (re-frame/reg-event-fx
  ::user-clicked-login
  (fn-traced [{:keys [db]} _]
-            (let [{:keys [login/username login/password login/state]} db]
+            (let [{:keys [login/username login/password]} db]
               {:db db
                :dispatch (cond (str/blank? username)
                                [::username-invalidated-login]
@@ -141,7 +141,7 @@
 (re-frame/reg-event-fx
  ::initiated-authentication
  (fn-traced [{:keys [db]} [event _]]
-            (let [{:keys [login/username login/password old olds]} db]
+            (let [{:keys [login/username login/password]} db]
               {:db (fsms/update-state db login/state-machine :login/state event)
                :http-xhrio
                {:method :post
@@ -156,16 +156,15 @@
 (re-frame/reg-event-fx
  ::initiated-deauthentication
  (fn-traced [{:keys [db]} [event _]]
-            (let [{:keys [old olds]} db]
-              {:db (fsms/update-state db login/state-machine :login/state event)
-               :http-xhrio
-               {:method :get
-                :uri (old/login-logout (db/old db))
-                :format (ajax/json-request-format)
-                :with-credentials true
-                :response-format (ajax/json-response-format {:keywords? true})
-                :on-success [::server-deauthenticated]
-                :on-failure [::server-not-deauthenticated]}})))
+            {:db (fsms/update-state db login/state-machine :login/state event)
+             :http-xhrio
+             {:method :get
+              :uri (old/login-logout (db/old db))
+              :format (ajax/json-request-format)
+              :with-credentials true
+              :response-format (ajax/json-response-format {:keywords? true})
+              :on-success [::server-deauthenticated]
+              :on-failure [::server-not-deauthenticated]}}))
 
 (re-frame/reg-event-fx
  ::server-authenticated
@@ -219,7 +218,7 @@
 
 (re-frame/reg-event-db
  ::applicationsettings-fetched
- (fn-traced [db [event application-settings-entities]]
+ (fn-traced [db [_event application-settings-entities]]
             (assoc-in
              db
              [:old-states (:old db) :application-settings]
@@ -228,14 +227,14 @@
 
 (re-frame/reg-event-db
  ::applicationsettings-not-fetched
- (fn-traced [db [event {:as x :keys [response]}]]
+ (fn-traced [db [_event _response]]
             ;; TODO handle this failure better. Probably logout and alert the user.
             (println "WARNING: failed to fetch the applicationsettings for this OLD")
             db))
 
 (re-frame/reg-event-db
  ::forms-new-fetched
- (fn-traced [db [event forms-new]]
+ (fn-traced [db [_event forms-new]]
              (assoc-in
               db
               [:old-states (:old db) :forms-new]
@@ -243,14 +242,14 @@
 
 (re-frame/reg-event-db
  ::forms-new-not-fetched
- (fn-traced [db [event _]]
+ (fn-traced [db [_event _]]
             ;; TODO handle this failure better. Probably logout and alert the user.
             (println "WARNING: failed to fetch forms/new for this OLD")
             db))
 
 (re-frame/reg-event-db
   ::formsearches-new-fetched
-  (fn-traced [db [event formsearches-new]]
+  (fn-traced [db [_event formsearches-new]]
              (assoc-in
               db
               [:old-states (:old db) :formsearches-new]
@@ -258,14 +257,14 @@
 
 (re-frame/reg-event-db
  ::formsearches-new-not-fetched
- (fn-traced [db [event _]]
+ (fn-traced [db [_event _]]
             ;; TODO handle this failure better. Probably logout and alert the user.
             (println "WARNING: failed to fetch formsearches/new for this OLD")
             db))
 
 (re-frame/reg-event-fx
  ::forms-page-1-fetched
- (fn [{:keys [db]} [event forms-page-1]]
+ (fn [{:keys [db]} [_event forms-page-1]]
             (let [{{:keys [items-per-page count]} :paginator :as forms-page-1}
                   (utils/->kebab-case-recursive forms-page-1)
                   new-page (int (/ count items-per-page))]
@@ -285,21 +284,21 @@
 
 (re-frame/reg-event-db
  ::forms-page-1-not-fetched
- (fn-traced [db [event _]]
+ (fn-traced [db [_event _]]
             ;; TODO handle this failure better. Probably logout and alert the user.
             (println "WARNING: failed to fetch forms page 1 for this OLD")
             db))
 
 (re-frame/reg-event-db
  ::forms-page-n-fetched
- (fn-traced [db [event forms-page-n]]
+ (fn-traced [db [_event forms-page-n]]
             (assoc-in db
                       [:old-states (:old db) :forms-page-n]
                       forms-page-n)))
 
 (re-frame/reg-event-db
  ::forms-page-n-not-fetched
- (fn-traced [db [event _]]
+ (fn-traced [db [_event _]]
             ;; TODO handle this failure better. Probably logout and alert the user.
             (println "WARNING: failed to fetch forms page N for this OLD")
             db))
