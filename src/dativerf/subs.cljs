@@ -3,6 +3,7 @@
    [re-frame.core :as re-frame]
    [dativerf.fsms.login :as login]))
 
+(re-frame/reg-sub ::user (fn [db] (:user db)))
 (re-frame/reg-sub ::name (fn [db] (:name db)))
 (re-frame/reg-sub ::old (fn [db] (:old db)))
 (re-frame/reg-sub ::olds (fn [db] (:olds db)))
@@ -59,8 +60,9 @@
 (re-frame/reg-sub
   :login/user-name
   :<- [:login/state]
-  (fn [[login-state] _]
+  :<- [::user]
+  (fn [[login-state user] _]
       (case login-state
-            ::login/user-is-authenticated "user's name"
+            ::login/user-is-authenticated (:username user)
             "Logged Out")))
 
