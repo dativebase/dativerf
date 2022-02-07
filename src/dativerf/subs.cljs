@@ -5,7 +5,7 @@
 
 (re-frame/reg-sub ::name (fn [db] (:name db)))
 (re-frame/reg-sub ::old (fn [db] (:old db)))
-(re-frame/reg-sub ::olds (fn [db] (:olds db)))
+(re-frame/reg-sub ::olds (fn [db] (->> db :olds (sort-by :name))))
 (re-frame/reg-sub ::active-tab (fn [db _] (:active-tab db)))
 (re-frame/reg-sub ::re-pressed-example (fn [db _] (:re-pressed-example db)))
 (re-frame/reg-sub ::user (fn [db] (:user db)))

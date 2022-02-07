@@ -1,19 +1,16 @@
 (ns dativerf.db)
 
 (def test-sample-olds
-  [{:id "blaold"
-    :name "Blackfoot OLD"
+  [{:name "Blackfoot OLD"
     :url "https://app.onlinelinguisticdatabase.org/blaold"}
-   {:id "okaold"
-    :name "Okanagan OLD"
+   {:name "Okanagan OLD"
     :url "https://app.onlinelinguisticdatabase.org/okaold"}])
 
 (def default-db
   {:name "Dative"
    :active-tab :home
-   ;; :olds []
-   :old (-> test-sample-olds first :id)
-   :olds test-sample-olds
+   :olds []
+   :old nil
    :old-states {}
    :user nil
    :application-settings nil
@@ -24,4 +21,4 @@
    :login/invalid-reason nil})
 
 (defn old [{:keys [old olds]}]
-  (->> olds (filter (fn [{:keys [id]}] (= old id))) first))
+  (->> olds (filter (fn [{:keys [url]}] (= old url))) first))
