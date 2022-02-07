@@ -99,7 +99,6 @@
     :disabled? @(re-frame/subscribe [:login/logout-button-disabled?])
     :on-click (fn [_e] (re-frame/dispatch [::events/user-clicked-logout]))]])
 
-;; TODO: (first_name :user) get actual user name
 (defn user-profile []
       [re-com/hyperlink
        :src (at)

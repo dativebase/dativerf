@@ -59,8 +59,7 @@
 (re-frame/reg-sub
   :login/user-name
   :<- [:login/state]
-  :<- [:login/user]
-  (fn [[login-state user] _]
+  (fn [[login-state] _]
       (case login-state
             ::login/user-is-authenticated "user's name"
             "Logged Out")))
