@@ -17,6 +17,25 @@ jobs:
           name: Install JavaScript dependencies, via NPM
           command: npm install
       - run:
+          name: Install clj-kondo
+          command: |
+            curl --fail --location --silent --remote-name "https://github.com/clj-kondo/clj-kondo/releases/download/v2022.01.15/clj-kondo-2022.01.15-linux-static-amd64.zip"
+            unzip clj-kondo-2022.01.15-linux-static-amd64.zip
+      - run:
+          name: Run linter
+          shell: /bin/bash
+          command: |
+            ./clj-kondo --lint src > report.txt
+            case $? in
+              2) echo Exited with warnings ;;
+              0) echo Exited success  ;;
+              *) exit 1 ;;
+            esac
+      - run:
+          name: Show lint output
+          command: cat report.txt
+          when: always
+      - run:
           name: Compute Classpath, via clj
           command: clojure -Spath
       - run:
