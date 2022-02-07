@@ -1,20 +1,19 @@
 (ns dativerf.views
-  (:require
-   [re-frame.core :as re-frame]
-   [re-com.core :as re-com :refer [at]]
-   [dativerf.styles :as styles]
-   [dativerf.events :as events]
-   [dativerf.routes :as routes]
-   [dativerf.subs :as subs]
-   dativerf.views.home
-   dativerf.views.login))
+  (:require [re-frame.core :as re-frame]
+            [re-com.core :as re-com :refer [at]]
+            [dativerf.events :as events]
+            [dativerf.routes :as routes]
+            [dativerf.styles :as styles]
+            [dativerf.subs :as subs]
+            dativerf.views.home
+            dativerf.views.login))
 
 (defn title []
   (let [user @(re-frame/subscribe [::subs/user])
         old-id @(re-frame/subscribe [::subs/old])
         olds @(re-frame/subscribe [::subs/olds])
         old-name (some->> olds
-                          (filter (fn [o] (= old-id (:id o))))
+                          (filter (fn [o] (= old-id (:url o))))
                           first
                           :name)
         title (if (and user old-name)

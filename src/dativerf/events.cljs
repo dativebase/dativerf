@@ -5,6 +5,7 @@
    [dativerf.db :as db]
    [dativerf.fsms :as fsms]
    [dativerf.fsms.login :as login]
+   [dativerf.models.old :as models-old]
    [dativerf.old :as old]
    [dativerf.utils :as utils]
    [day8.re-frame.tracing :refer-macros [fn-traced defn-traced]]
@@ -20,6 +21,31 @@
 (re-frame/reg-event-fx
  ::navigate
  (fn-traced [_ [_ handler]] {:navigate handler}))
+
+(def app-dative-servers-url "https://app.dative.ca/servers.json")
+
+(re-frame/reg-event-fx
+ ::fetch-olds
+ (fn-traced [_cofx _event]
+            {:http-xhrio
+             {:method :get
+              :uri app-dative-servers-url
+              :format (ajax/json-request-format)
+              :response-format (ajax/json-response-format {:keywords? true})
+              :on-success [::olds-fetched]
+              :on-failure [::olds-not-fetched]}}))
+
+(re-frame/reg-event-db
+ ::olds-fetched
+ (fn-traced [db [_ olds]]
+            (assoc db :olds (models-old/olds-response->olds olds))))
+
+(re-frame/reg-event-db
+ ::olds-not-fetched
+ (fn-traced [db [_ response]]
+            (println "WARNING: failed to fetch the olds from the server!")
+            (prn response)
+            db))
 
 (re-frame/reg-event-fx
  ::set-active-tab

@@ -34,6 +34,7 @@
              :choices @(re-frame/subscribe [::subs/olds])
              :model @(re-frame/subscribe [::subs/old])
              :label-fn :name
+             :id-fn :url
              :filter-box? true
              :on-change
              (fn [x]
