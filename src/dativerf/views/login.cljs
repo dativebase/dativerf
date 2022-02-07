@@ -11,7 +11,7 @@
   [re-com/title
    :src   (at)
    :label "Login"
-   :level :level1])
+   :level :level2])
 
 (defn link-to-home-page []
   [re-com/hyperlink
@@ -99,6 +99,19 @@
     :disabled? @(re-frame/subscribe [:login/logout-button-disabled?])
     :on-click (fn [_e] (re-frame/dispatch [::events/user-clicked-logout]))]])
 
+(defn login-tab []
+  [re-com/v-box
+   :src (at)
+   :gap "1em"
+   :padding "1em"
+   :children [[login-title]
+              [old-instance-select]
+              [username-input]
+              [password-input]
+              [re-com/h-box
+               :children [[login-button]
+                          [logout-button]]
+               :gap "5px"]]])
 (defn user-profile []
       [re-com/hyperlink
        :src (at)
@@ -122,4 +135,5 @@
                               [logout-button]]
                    :gap " 5px "]]])
 
-(defmethod routes/panels :login-panel [] [login-panel])
+(defmethod routes/tabs :login [] [login-tab])
+(defmethod routes/tabs :logout [] [login-tab])

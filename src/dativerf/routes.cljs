@@ -5,15 +5,18 @@
    [re-frame.core :as re-frame]
    [dativerf.events :as events]))
 
-(defmulti panels identity)
-(defmethod panels :default [] [:div "No panel found for this route."])
+(defmulti tabs identity)
+(defmethod tabs :default [] [:div "No tab found for this route."])
 
 (def routes
   (atom
-    ["/" {""      :home
-          "about" :about
+    ["/" {"" :home
           "login" :login
-          "profile" :profile}]))
+          "logout" :logout
+          "profile" :profile
+          "forms" :forms
+          "files" :files
+          "collections" :collections}]))
 
 (defn parse
   [url]
@@ -25,8 +28,8 @@
 
 (defn dispatch
   [route]
-  (let [panel (keyword (str (name (:handler route)) "-panel"))]
-    (re-frame/dispatch [::events/set-active-panel panel])))
+  (let [tab (keyword (str (name (:handler route))))]
+    (re-frame/dispatch [::events/set-active-tab tab])))
 
 (defonce history
   (pushy/pushy dispatch parse))

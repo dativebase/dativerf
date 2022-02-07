@@ -10,34 +10,64 @@
    dativerf.views.login
    dativerf.views.profile))
 
-;; about
+(defn title []
+  (let [name @(re-frame/subscribe [::subs/name])
+        user @(re-frame/subscribe [::subs/user])
+        old-id @(re-frame/subscribe [::subs/old])
+        olds @(re-frame/subscribe [::subs/olds])
+        old-name (some->> olds
+                          (filter (fn [o] (= old-id (:id o))))
+                          first
+                          :name)
+        title (if (and user old-name)
+                (str "Dative: " old-name)
+                "Dative")]
+    [re-com/title
+     :src   (at)
+     :label title
+     :level :level1
+     :class (styles/level1)]))
 
-(defn about-title []
-  [re-com/title
-   :src   (at)
-   :label "This is the About Page."
-   :level :level1])
+(def menu-tabs
+  [{:id :home :label "Home" :authenticated? nil}
+   {:id :forms :label "Forms" :authenticated? true}
+   {:id :files :label "Files" :authenticated? true}
+   {:id :collections :label "Collections" :authenticated? true}
+   {:id :login :label "Login" :authenticated? false}
+   {:id :logout :label "Logout" :authenticated? true}])
 
-(defn link-to-home-page []
-  [re-com/hyperlink
-   :src      (at)
-   :label    "go to Home Page"
-   :on-click #(re-frame/dispatch [::events/navigate :home])])
+(defn- unauthenticated-tabs [tabs]
+  (filter (fn [{:keys [authenticated?]}]
+            (or (false? authenticated?)
+                (nil? authenticated?)))
+          tabs))
 
-(defn about-panel []
-  [re-com/v-box
-   :src      (at)
-   :gap      "1em"
-   :children [[about-title]
-              [link-to-home-page]]])
+(defn- authenticated-tabs [tabs]
+  (filter (fn [{:keys [authenticated?]}]
+            (or (true? authenticated?)
+                (nil? authenticated?)))
+          tabs))
 
-(defmethod routes/panels :about-panel [] [about-panel])
+(defn menu []
+  (let [user @(re-frame/subscribe [::subs/user])
+        model @(re-frame/subscribe [::subs/active-tab])
+        authenticated? (boolean user)
+        tabs (if authenticated?
+               (authenticated-tabs menu-tabs)
+               (unauthenticated-tabs menu-tabs))]
+    [re-com/horizontal-tabs
+     :src (at)
+     :tabs tabs
+     :model model
+     :on-change (fn [tab-id]
+                  (re-frame/dispatch [::events/navigate tab-id]))]))
 
-;; main
-
-(defn main-panel []
-  (let [active-panel (re-frame/subscribe [::subs/active-panel])]
+(defn main-tab []
+  (let [active-tab (re-frame/subscribe [::subs/active-tab])]
     [re-com/v-box
      :src      (at)
      :height   "100%"
-     :children [(routes/panels @active-panel)]]))
+     :padding "1em"
+     :children [[title]
+                [menu]
+                (routes/tabs @active-tab)]]))

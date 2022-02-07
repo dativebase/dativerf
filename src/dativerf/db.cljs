@@ -14,7 +14,7 @@
 
 (def default-db
   {:name "Dative"
-   :active-panel :home-panel
+   :active-tab :home
    :old (-> test-sample-olds first :id)
    ;; :olds []
    :olds test-sample-olds
