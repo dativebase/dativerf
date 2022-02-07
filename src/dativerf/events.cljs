@@ -5,6 +5,7 @@
    [dativerf.db :as db]
    [dativerf.fsms :as fsms]
    [dativerf.fsms.login :as login]
+   [dativerf.old :as old]
    [dativerf.utils :as utils]
    [day8.re-frame.tracing :refer-macros [fn-traced defn-traced]]
    [reagent.core :as reagent]
@@ -144,9 +145,8 @@
               {:db (fsms/update-state db login/state-machine :login/state event)
                :http-xhrio
                {:method :post
-                :uri (str (->> olds (filter (fn [{:keys [id]}] (= old id)))
-                               first :url)
-                          "/login/authenticate")
+                :uri (old/login-authenticate (db/old db))
+                :with-credentials true
                 :params {:username username :password password}
                 :format (ajax/json-request-format)
                 :response-format (ajax/json-response-format {:keywords? true})
@@ -160,28 +160,149 @@
               {:db (fsms/update-state db login/state-machine :login/state event)
                :http-xhrio
                {:method :get
-                :uri (str
-                      (->> olds (filter (fn [{:keys [id]}] (= old id))) first :url)
-                      "/login/logout")
+                :uri (old/login-logout (db/old db))
                 :format (ajax/json-request-format)
+                :with-credentials true
                 :response-format (ajax/json-response-format {:keywords? true})
                 :on-success [::server-deauthenticated]
                 :on-failure [::server-not-deauthenticated]}})))
 
-(re-frame/reg-event-db
+(re-frame/reg-event-fx
  ::server-authenticated
- (fn-traced [db [event {:keys [authenticated user]}]]
+ (fn-traced [{:keys [db]} [event {:keys [authenticated user]}]]
             (if authenticated
-              (-> db
-                  (fsms/update-state login/state-machine :login/state event)
-                  (assoc :user (utils/->kebab-case-recursive user)
-                         :login/username ""
-                         :login/password ""
-                         :active-tab :forms))
-              (-> db
-                  (fsms/update-state login/state-machine :login/state
-                                     ::server-not-authenticated)
-                  (assoc :user nil)))))
+              (let [old (db/old db)]
+                {:db (-> db
+                         (fsms/update-state login/state-machine :login/state event)
+                         (assoc :user (utils/->kebab-case-recursive user)
+                                :login/username ""
+                                :login/password ""
+                                :active-tab :forms))
+                 :http-xhrio
+                 [{:method :get
+                   :uri (old/applicationsettings old)
+                   :format (ajax/json-request-format)
+                   :response-format (ajax/json-response-format {:keywords? true})
+                   :with-credentials true
+                   :cookie-policy :standard
+                   :on-success [::applicationsettings-fetched]
+                   :on-failure [::applicationsettings-not-fetched]}
+                  {:method :get
+                   :uri (old/forms-new old)
+                   :format (ajax/json-request-format)
+                   :response-format (ajax/json-response-format {:keywords? true})
+                   :with-credentials true
+                   :cookie-policy :standard
+                   :on-success [::forms-new-fetched]
+                   :on-failure [::forms-new-not-fetched]}
+                  {:method :get
+                   :uri (old/formsearches-new old)
+                   :format (ajax/json-request-format)
+                   :response-format (ajax/json-response-format {:keywords? true})
+                   :with-credentials true
+                   :cookie-policy :standard
+                   :on-success [::formsearches-new-fetched]
+                   :on-failure [::formsearches-new-not-fetched]}
+                  {:method :get
+                   :uri (old/forms old)
+                   :params {:page 1 :items_per_page 10}
+                   :format (ajax/json-request-format)
+                   :response-format (ajax/json-response-format {:keywords? true})
+                   :with-credentials true
+                   :cookie-policy :standard
+                   :on-success [::forms-page-1-fetched]
+                   :on-failure [::forms-page-1-not-fetched]}]})
+              {:db (-> db
+                       (fsms/update-state login/state-machine :login/state
+                                          ::server-not-authenticated)
+                       (assoc :user nil))})))
+
+(re-frame/reg-event-db
+ ::applicationsettings-fetched
+ (fn-traced [db [event application-settings-entities]]
+            (assoc-in
+             db
+             [:old-states (:old db) :application-settings]
+             (utils/->kebab-case-recursive
+              (last application-settings-entities)))))
+
+(re-frame/reg-event-db
+ ::applicationsettings-not-fetched
+ (fn-traced [db [event {:as x :keys [response]}]]
+            ;; TODO handle this failure better. Probably logout and alert the user.
+            (println "WARNING: failed to fetch the applicationsettings for this OLD")
+            db))
+
+(re-frame/reg-event-db
+ ::forms-new-fetched
+ (fn-traced [db [event forms-new]]
+             (assoc-in
+              db
+              [:old-states (:old db) :forms-new]
+              (utils/->kebab-case-recursive forms-new))))
+
+(re-frame/reg-event-db
+ ::forms-new-not-fetched
+ (fn-traced [db [event _]]
+            ;; TODO handle this failure better. Probably logout and alert the user.
+            (println "WARNING: failed to fetch forms/new for this OLD")
+            db))
+
+(re-frame/reg-event-db
+  ::formsearches-new-fetched
+  (fn-traced [db [event formsearches-new]]
+             (assoc-in
+              db
+              [:old-states (:old db) :formsearches-new]
+              (utils/->kebab-case-recursive formsearches-new))))
+
+(re-frame/reg-event-db
+ ::formsearches-new-not-fetched
+ (fn-traced [db [event _]]
+            ;; TODO handle this failure better. Probably logout and alert the user.
+            (println "WARNING: failed to fetch formsearches/new for this OLD")
+            db))
+
+(re-frame/reg-event-fx
+ ::forms-page-1-fetched
+ (fn [{:keys [db]} [event forms-page-1]]
+            (let [{{:keys [items-per-page count]} :paginator :as forms-page-1}
+                  (utils/->kebab-case-recursive forms-page-1)
+                  new-page (int (/ count items-per-page))]
+              {:db (assoc-in db
+                             [:old-states (:old db) :forms-page-1]
+                             forms-page-1)
+               :http-xhrio {:method :get
+                            :uri (old/forms (db/old db))
+                            :params {:page new-page :items_per_page items-per-page}
+                            :format (ajax/json-request-format)
+                            :response-format (ajax/json-response-format
+                                              {:keywords? true})
+                            :with-credentials true
+                            :cookie-policy :standard
+                            :on-success [::forms-page-n-fetched]
+                            :on-failure [::forms-page-n-not-fetched]}})))
+
+(re-frame/reg-event-db
+ ::forms-page-1-not-fetched
+ (fn-traced [db [event _]]
+            ;; TODO handle this failure better. Probably logout and alert the user.
+            (println "WARNING: failed to fetch forms page 1 for this OLD")
+            db))
+
+(re-frame/reg-event-db
+ ::forms-page-n-fetched
+ (fn-traced [db [event forms-page-n]]
+            (assoc-in db
+                      [:old-states (:old db) :forms-page-n]
+                      forms-page-n)))
+
+(re-frame/reg-event-db
+ ::forms-page-n-not-fetched
+ (fn-traced [db [event _]]
+            ;; TODO handle this failure better. Probably logout and alert the user.
+            (println "WARNING: failed to fetch forms page N for this OLD")
+            db))
 
 (re-frame/reg-event-db
  ::server-not-authenticated
@@ -197,6 +318,8 @@
             (-> db
                 (assoc :user nil
                        :active-tab :login)
+                (update :old-states
+                        (fn [old-states] (dissoc old-states (:old db))))
                 (transition-login-fsm event))))
 
 (re-frame/reg-event-db
@@ -206,4 +329,6 @@
             (-> db
                 (assoc :user nil
                        :active-tab :login)
+                (update :old-states
+                        (fn [old-states] (dissoc old-states (:old db))))
                 (transition-login-fsm event))))
