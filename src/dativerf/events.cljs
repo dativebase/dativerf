@@ -53,18 +53,36 @@
    {:db (assoc db :active-tab active-tab)
     :dispatch [::rp/set-keydown-rules
                {:event-keys [[[:shortcut/home]
-                              [{:keyCode 72}]] ;; h
+                              [{:keyCode 72
+                                :ctrlKey true
+                                :shiftKey true}]] ;; C-H
                              [[:shortcut/login]
-                              [{:keyCode 76}]] ;; l
+                              [{:keyCode 76
+                                :ctrlKey true
+                                :shiftKey true}]] ;; C-L
                              [[:shortcut/forms]
-                              [{:keyCode 66}]] ;; b
+                              [{:keyCode 66
+                                :ctrlKey true
+                                :shiftKey true}]] ;; C-B
                              [[:shortcut/files]
-                              [{:keyCode 70}]] ;; f
+                              [{:keyCode 70
+                                :ctrlKey true
+                                :shiftKey true}]] ;; C-F
                              [[:shortcut/collections]
-                              [{:keyCode 73}]] ;; i
+                              [{:keyCode 73
+                                :ctrlKey true
+                                :shiftKey true}]] ;; C-I
                              ]
                 :clear-keys
-                [[{:keyCode 27}]]}]}))
+                [[{:keyCode 27}]]
+
+                :always-listen-keys
+                [{:keyCode 72 :ctrlKey true :shiftKey true}  ;; C-H
+                 {:keyCode 76 :ctrlKey true :shiftKey true}  ;; C-L
+                 {:keyCode 66 :ctrlKey true :shiftKey true}  ;; C-B
+                 {:keyCode 70 :ctrlKey true :shiftKey true}  ;; C-F
+                 {:keyCode 73 :ctrlKey true :shiftKey true}] ;; C-I
+                }]}))
 
 ;; Cf. https://day8.github.io/re-frame/FAQs/FocusOnElement/
 ;; TODO: I was not able to get this to work.
