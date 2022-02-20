@@ -1,6 +1,9 @@
 (ns dativerf.utils
   (:require [clojure.walk :as walk]
-            [camel-snake-kebab.core :as csk]))
+            [camel-snake-kebab.core :as csk]
+            [clojure.string :as str]))
+
+(defn kebab->space [s] (str/replace s #"-" " "))
 
 (defn ->kebab-case-recursive [d]
   (walk/postwalk

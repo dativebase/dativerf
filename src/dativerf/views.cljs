@@ -5,6 +5,7 @@
             [dativerf.routes :as routes]
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
+            dativerf.views.application-settings
             dativerf.views.home
             dativerf.views.login))
 
@@ -30,6 +31,7 @@
    {:id :forms :label "Forms" :authenticated? true}
    {:id :files :label "Files" :authenticated? true}
    {:id :collections :label "Collections" :authenticated? true}
+   {:id :application-settings :label "Settings" :authenticated? true}
    {:id :login :label "Login" :authenticated? false}
    {:id :logout :label "Logout" :authenticated? true}])
 
@@ -47,15 +49,16 @@
 
 (defn menu []
   (let [user @(re-frame/subscribe [::subs/user])
-        model @(re-frame/subscribe [::subs/active-tab])
+        tab @(re-frame/subscribe [::subs/active-tab])
         authenticated? (boolean user)
         tabs (if authenticated?
                (authenticated-tabs menu-tabs)
-               (unauthenticated-tabs menu-tabs))]
+               (unauthenticated-tabs menu-tabs))
+        tab (if (some #{tab} (map :id tabs)) tab :home)]
     [re-com/horizontal-tabs
      :src (at)
      :tabs tabs
-     :model model
+     :model tab
      :on-change (fn [tab-id]
                   (re-frame/dispatch [::events/navigate tab-id]))]))
 

@@ -10,12 +10,20 @@
 (re-frame/reg-sub ::re-pressed-example (fn [db _] (:re-pressed-example db)))
 (re-frame/reg-sub ::user (fn [db] (:user db)))
 
+(re-frame/reg-sub ::active-settings-tab (fn [db _] (:settings/active-tab db)))
+
 (re-frame/reg-sub :login/username (fn [db] (:login/username db)))
 (re-frame/reg-sub :login/password (fn [db] (:login/password db)))
 (re-frame/reg-sub :login/state (fn [db _] (:login/state db)))
 (re-frame/reg-sub :login/invalid-reason (fn [db _] (:login/invalid-reason db)))
 
-;; TODO: this should be a function of :login/state but I don't know why/when we would want to disable the login inputs ...
+(re-frame/reg-sub
+ ::application-settings
+ (fn [db _]
+   (get-in db [:old-states (:old db) :application-settings])))
+
+;; TODO: these should be a function of :login/state and :settings/state but I
+;; don't know why/when we would want to disable these inputs ...
 (re-frame/reg-sub :login/inputs-disabled? (constantly false))
 
 (re-frame/reg-sub
