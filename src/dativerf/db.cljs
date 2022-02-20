@@ -13,7 +13,8 @@
    :old nil
    :old-states {}
    :user nil
-   :application-settings nil
+   ;; settings state
+   :settings/active-tab :server
    ;; login state
    :login/username ""
    :login/password ""

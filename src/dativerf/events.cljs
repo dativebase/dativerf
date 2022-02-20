@@ -47,10 +47,19 @@
             (prn response)
             db))
 
+(re-frame/reg-event-db
+ ::set-settings-active-tab
+ (fn-traced [db [_ active-settings-tab]]
+            (assoc db :settings/active-tab active-settings-tab)))
+
 (re-frame/reg-event-fx
  ::set-active-tab
  (fn-traced [{:keys [db]} [_ active-tab]]
    {:db (assoc db :active-tab active-tab)
+    ;; WARNING: dispatching the following here means that each tab-change resets
+    ;; the keyboard shortcuts vacuously. This may seem wasteful, but I suspect
+    ;; we will want tab-specific shortcuts so I am leaving it here as-is on
+    ;; purpose.
     :dispatch [::rp/set-keydown-rules
                {:event-keys [[[:shortcut/home]
                               [{:keyCode 72
@@ -72,16 +81,21 @@
                               [{:keyCode 73
                                 :ctrlKey true
                                 :shiftKey true}]] ;; C-I
+                             [[:shortcut/application-settings]
+                              [{:keyCode 188
+                                :ctrlKey true
+                                :shiftKey true}]] ;; C-,
                              ]
                 :clear-keys
                 [[{:keyCode 27}]]
 
                 :always-listen-keys
-                [{:keyCode 72 :ctrlKey true :shiftKey true}  ;; C-H
-                 {:keyCode 76 :ctrlKey true :shiftKey true}  ;; C-L
-                 {:keyCode 66 :ctrlKey true :shiftKey true}  ;; C-B
-                 {:keyCode 70 :ctrlKey true :shiftKey true}  ;; C-F
-                 {:keyCode 73 :ctrlKey true :shiftKey true}] ;; C-I
+                [{:keyCode 72 :ctrlKey true :shiftKey true}   ;; C-H
+                 {:keyCode 76 :ctrlKey true :shiftKey true}   ;; C-L
+                 {:keyCode 66 :ctrlKey true :shiftKey true}   ;; C-B
+                 {:keyCode 70 :ctrlKey true :shiftKey true}   ;; C-F
+                 {:keyCode 73 :ctrlKey true :shiftKey true}   ;; C-I
+                 {:keyCode 188 :ctrlKey true :shiftKey true}] ;; C-,
                 }]}))
 
 ;; Cf. https://day8.github.io/re-frame/FAQs/FocusOnElement/
@@ -105,15 +119,23 @@
 
 (re-frame/reg-event-fx
  :shortcut/forms
- (fn-traced [_cofx _] {:fx [[:dispatch [::navigate :forms]]]}))
+ (fn-traced [{{:keys [user]} :db} _]
+            (when user {:fx [[:dispatch [::navigate :forms]]]})))
 
 (re-frame/reg-event-fx
  :shortcut/files
- (fn-traced [_cofx _] {:fx [[:dispatch [::navigate :files]]]}))
+ (fn-traced [{{:keys [user]} :db} _]
+            (when user {:fx [[:dispatch [::navigate :files]]]})))
 
 (re-frame/reg-event-fx
  :shortcut/collections
- (fn-traced [_cofx _] {:fx [[:dispatch [::navigate :collections]]]}))
+ (fn-traced [{{:keys [user]} :db} _]
+            (when user {:fx [[:dispatch [::navigate :collections]]]})))
+
+(re-frame/reg-event-fx
+ :shortcut/application-settings
+ (fn-traced [{{:keys [user]} :db} _]
+            (when user {:fx [[:dispatch [::navigate :application-settings-view]]]})))
 
 ;; Login Page/Form Events
 
