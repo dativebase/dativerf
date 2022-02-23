@@ -56,9 +56,9 @@
  (fn [login-state _] (not= login-state ::login/is-ready)))
 
 (re-frame/reg-sub
- :login/logout-button-disabled?
+ :login/logged-in?
  :<- [:login/state]
- (fn [login-state _] (not= login-state ::login/user-is-authenticated)))
+ (fn [login-state _] (= login-state ::login/user-is-authenticated)))
 
 ;; Forms Browse Navigation Subscriptions
 (re-frame/reg-sub ::forms-items-per-page

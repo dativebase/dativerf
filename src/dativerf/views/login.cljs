@@ -9,7 +9,9 @@
 (defn login-title []
   [re-com/title
    :src   (at)
-   :label "Login"
+   :label (if @(re-frame/subscribe [:login/logged-in?])
+            "Logout"
+            "Login")
    :level :level2])
 
 (defn link-to-home-page []
@@ -96,22 +98,23 @@
    :child
    [re-com/button
     :label "Logout"
-    :disabled? @(re-frame/subscribe [:login/logout-button-disabled?])
     :on-click (fn [_e] (re-frame/dispatch [::events/user-clicked-logout]))]])
 
 (defn login-tab []
-  [re-com/v-box
-   :src (at)
-   :gap "1em"
-   :padding "1em"
-   :children [[login-title]
-              [old-instance-select]
-              [username-input]
-              [password-input]
-              [re-com/h-box
-               :children [[login-button]
-                          [logout-button]]
-               :gap "5px"]]])
+  (let [logged-in? @(re-frame/subscribe [:login/logged-in?])
+        components (if logged-in?
+                     [[login-title]
+                      [logout-button]]
+                     [[login-title]
+                      [old-instance-select]
+                      [username-input]
+                      [password-input]
+                      [login-button]])]
+    [re-com/v-box
+     :src (at)
+     :gap "1em"
+     :padding "1em"
+     :children components]))
 
 (defmethod routes/tabs :login [] [login-tab])
 (defmethod routes/tabs :logout [] [login-tab])
