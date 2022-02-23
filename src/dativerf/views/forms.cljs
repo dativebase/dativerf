@@ -5,6 +5,7 @@
             [dativerf.routes :as routes]
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
+            [dativerf.views.form :as form]
             [dativerf.views.widgets :as widgets]))
 
 ;; Buttons
@@ -247,29 +248,13 @@
    :width "80px"
    :child [re-com/label :label (str "(" (utils/commatize index) ")")]])
 
-(def form-rows
-  [{:key :transcription :type :string}
-   {:key :morpheme-break :type :string}
-   {:key :morpheme-gloss :type :string}
-   {:key :translations :type :coll-of-translations}])
-
-(defn igt-form [form-id]
-  (let [form @(re-frame/subscribe [::subs/form-by-id form-id])]
-    [re-com/v-box
-     :src (at)
-     :children
-     (for [{:as row :keys [key]} form-rows]
-       ^{:key key} [widgets/key-value-row
-                    (utils/kebab->space (name key))
-                    (assoc row :value (key form))])]))
-
 (defn enumerated-form [index form-id]
   [re-com/h-box
    :src (at)
    :padding "1em"
    :children
    [[form-index index]
-    [igt-form form-id]]])
+    [form/igt-form form-id]]])
 
 (defn forms-enumeration []
   (let [first-form @(re-frame/subscribe [::subs/forms-first-form])
