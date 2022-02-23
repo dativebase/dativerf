@@ -186,7 +186,6 @@
                                :form/speaker-comments
                                :form/morpheme-gloss-ids
                                :form/semantics
-                               :form/enterer
                                :form/comments
                                :form/source
                                :form/syntactic-category-string
