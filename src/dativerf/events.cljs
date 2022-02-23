@@ -270,13 +270,14 @@
                    :on-failure [::formsearches-new-not-fetched]}
                   {:method :get
                    :uri (old/forms old)
-                   :params {:page 1 :items_per_page 10}
+                   :params {:page 1
+                            :items_per_page (:forms-paginator/items-per-page db)}
                    :format (ajax/json-request-format)
                    :response-format (ajax/json-response-format {:keywords? true})
                    :with-credentials true
                    :cookie-policy :standard
-                   :on-success [::forms-page-1-fetched]
-                   :on-failure [::forms-page-1-not-fetched]}]})
+                   :on-success [::forms-first-page-fetched-initial]
+                   :on-failure [::forms-first-page-not-fetched-initial]}]})
               {:db (-> db
                        (fsms/update-state login/state-machine :login/state
                                           ::server-not-authenticated)
@@ -328,42 +329,65 @@
             (println "WARNING: failed to fetch formsearches/new for this OLD")
             db))
 
+(defn reformat-forms-response [response]
+  (let [{:keys [items paginator]} (utils/->kebab-case-recursive response)
+        {:keys [page items-per-page count]} paginator
+        current-page page
+        last-page (Math/ceil (/ count items-per-page))
+        first-form (- (* current-page items-per-page)
+                      (dec items-per-page))
+        last-form (min count (+ first-form (dec items-per-page)))
+        fetched-at (.now js/Date)]
+    {:forms (->> items
+                 (map (juxt :uuid
+                            (fn [form] (assoc form :dative/fetched-at
+                                              fetched-at))))
+                 (into {}))
+     :paginator {:forms-paginator/items-per-page items-per-page
+                 :forms-paginator/current-page-forms (mapv :uuid items)
+                 :forms-paginator/current-page current-page
+                 :forms-paginator/last-page last-page
+                 :forms-paginator/count count
+                 :forms-paginator/first-form first-form
+                 :forms-paginator/last-form last-form}}))
+
 (re-frame/reg-event-fx
- ::forms-page-1-fetched
- (fn [{:keys [db]} [_event forms-page-1]]
-            (let [{{:keys [items-per-page count]} :paginator :as forms-page-1}
-                  (utils/->kebab-case-recursive forms-page-1)
-                  new-page (int (/ count items-per-page))]
-              {:db (assoc-in db
-                             [:old-states (:old db) :forms-page-1]
-                             forms-page-1)
+ ::forms-first-page-fetched-initial
+ (fn [{:keys [db]} [_event response]]
+            (let [{:keys [forms paginator]} (reformat-forms-response response)]
+              {:db (-> db
+                       (update-in [:old-states (:old db) :forms] merge forms)
+                       (merge paginator))
                :http-xhrio {:method :get
                             :uri (old/forms (db/old db))
-                            :params {:page new-page :items_per_page items-per-page}
+                            :params {:page (:forms-paginator/last-page paginator)
+                                     :items_per_page
+                                     (:forms-paginator/items-per-page paginator)}
                             :format (ajax/json-request-format)
                             :response-format (ajax/json-response-format
                                               {:keywords? true})
                             :with-credentials true
                             :cookie-policy :standard
-                            :on-success [::forms-page-n-fetched]
-                            :on-failure [::forms-page-n-not-fetched]}})))
+                            :on-success [::forms-last-page-fetched]
+                            :on-failure [::forms-last-page-not-fetched]}})))
 
 (re-frame/reg-event-db
- ::forms-page-1-not-fetched
+ ::forms-first-page-not-fetched-initial
  (fn-traced [db [_event _]]
             ;; TODO handle this failure better. Probably logout and alert the user.
             (println "WARNING: failed to fetch forms page 1 for this OLD")
             db))
 
 (re-frame/reg-event-db
- ::forms-page-n-fetched
- (fn-traced [db [_event forms-page-n]]
-            (assoc-in db
-                      [:old-states (:old db) :forms-page-n]
-                      forms-page-n)))
+ ::forms-last-page-fetched
+ (fn-traced [db [_event response]]
+            (let [{:keys [forms paginator]} (reformat-forms-response response)]
+              (-> db
+                  (update-in [:old-states (:old db) :forms] merge forms)
+                  (merge paginator)))))
 
 (re-frame/reg-event-db
- ::forms-page-n-not-fetched
+ ::forms-last-page-not-fetched
  (fn-traced [db [_event _]]
             ;; TODO handle this failure better. Probably logout and alert the user.
             (println "WARNING: failed to fetch forms page N for this OLD")
@@ -397,3 +421,129 @@
                 (update :old-states
                         (fn [old-states] (dissoc old-states (:old db))))
                 (transition-login-fsm event))))
+
+;; Forms Browse Navigation Events
+
+(defn get-request []
+  {:method :get
+   :format (ajax/json-request-format)
+   :response-format (ajax/json-response-format {:keywords? true})
+   :with-credentials true
+   :cookie-policy :standard})
+
+(defn get-forms-page-request []
+  (assoc (get-request)
+         :on-success [::forms-page-fetched]
+         :on-failure [::forms-page-not-fetched]))
+
+(re-frame/reg-event-fx
+ ::user-clicked-forms-first-page
+ (fn-traced [{:keys [db]} _]
+            {:db (assoc db :forms-paginator/current-page 1)
+             :http-xhrio
+             (merge (get-forms-page-request)
+                    {:uri (old/forms (db/old db))
+                     :params {:page 1
+                              :items_per_page
+                              (:forms-paginator/items-per-page db)}})}))
+
+(re-frame/reg-event-fx
+ ::user-clicked-forms-next-page
+ (fn-traced [{:keys [db]} _]
+            (let [current-page (:forms-paginator/current-page db)
+                  next-page (inc current-page)]
+              {:db (assoc db :forms-paginator/current-page next-page)
+               :http-xhrio
+               (merge (get-forms-page-request)
+                      {:uri (old/forms (db/old db))
+                       :params {:page next-page
+                                :items_per_page
+                                (:forms-paginator/items-per-page db)}})})))
+
+(re-frame/reg-event-fx
+ ::user-clicked-forms-previous-page
+ (fn-traced [{:keys [db]} _]
+            (let [current-page (:forms-paginator/current-page db)
+                  previous-page (dec current-page)]
+              {:db (assoc db :forms-paginator/current-page previous-page)
+               :http-xhrio
+               (merge (get-forms-page-request)
+                      {:uri (old/forms (db/old db))
+                       :params {:page previous-page
+                                :items_per_page
+                                (:forms-paginator/items-per-page db)}})})))
+
+(re-frame/reg-event-fx
+ ::user-clicked-forms-last-page
+ (fn-traced [{:keys [db]} _]
+            (let [last-page (:forms-paginator/last-page db)]
+              {:db (assoc db :forms-paginator/current-page last-page)
+               :http-xhrio
+               (merge (get-forms-page-request)
+                      {:uri (old/forms (db/old db))
+                       :params {:page last-page
+                                :items_per_page
+                                (:forms-paginator/items-per-page db)}})})))
+
+(re-frame/reg-event-fx
+ ::user-clicked-go-to-page
+ (fn-traced [{:keys [db]} [_ page-number]]
+            {:db (assoc db :forms-paginator/current-page page-number)
+             :http-xhrio
+             (merge (get-forms-page-request)
+                    {:uri (old/forms (db/old db))
+                     :params {:page page-number
+                              :items_per_page
+                              (:forms-paginator/items-per-page db)}})}))
+
+(def max-forms-in-memory 200)
+
+(defn prune-forms
+  "Remove the oldest forms from the DB. We only keep the max-forms-in-memory
+  newest forms."
+  [db]
+  (let [forms (get-in db [:old-states (:old db) :forms])
+        form-count (count forms)
+        to-drop (max 0 (- form-count max-forms-in-memory))]
+    (if (zero? to-drop)
+      db
+      (assoc-in db [:old-states (:old db) :forms]
+                (->> forms
+                     vals
+                     (sort-by :dative/fetched-at)
+                     (drop to-drop)
+                     (map (juxt :uuid identity))
+                     (into {}))))))
+
+(re-frame/reg-event-db
+ ::forms-page-fetched
+ (fn-traced [db [_event response]]
+            (let [{:keys [forms paginator]} (reformat-forms-response response)]
+              (-> db
+                  (update-in [:old-states (:old db) :forms] merge forms)
+                  prune-forms
+                  (merge paginator)))))
+
+(re-frame/reg-event-db
+ ::forms-page-not-fetched
+ (fn-traced [db [_event _]]
+            ;; TODO handle this failure better. Probably logout and alert the user.
+            (println "WARNING: failed to fetch a page of forms")
+            db))
+
+(re-frame/reg-event-fx
+ ::user-changed-items-per-page
+ (fn [{:keys [db]} [_ items-per-page]]
+            (let [first-form (:forms-paginator/first-form db)
+                  current-page (Math/ceil (/ first-form items-per-page))
+                  last-page (Math/ceil (/ (:forms-paginator/count db)
+                                          items-per-page))]
+              {:db (assoc db
+                          :forms-paginator/items-per-page items-per-page
+                          :forms-paginator/current-page current-page
+                          :forms-paginator/last-page last-page)
+               :http-xhrio
+               (merge (get-forms-page-request)
+                      {:uri (old/forms (db/old db))
+                       :params {:page current-page
+                                :items_per_page items-per-page}})})))

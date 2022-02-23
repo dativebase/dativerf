@@ -6,6 +6,7 @@
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
             dativerf.views.application-settings
+            dativerf.views.forms
             dativerf.views.home
             dativerf.views.login))
 
@@ -65,8 +66,9 @@
 (defn main-tab []
   (let [active-tab (re-frame/subscribe [::subs/active-tab])]
     [re-com/v-box
-     :src      (at)
-     :height   "100%"
+     :src (at)
+     :height "100%"
+     :max-width "800px"
      :padding "1em"
      :children [[title]
                 [menu]

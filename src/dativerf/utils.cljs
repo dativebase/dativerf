@@ -3,6 +3,9 @@
             [camel-snake-kebab.core :as csk]
             [clojure.string :as str]))
 
+(defn commatize [number]
+  (cljs.pprint/cl-format nil "~,,',:D" number))
+
 (defn kebab->space [s] (str/replace s #"-" " "))
 
 (defn ->kebab-case-recursive [d]
