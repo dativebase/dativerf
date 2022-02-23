@@ -19,6 +19,42 @@
 
 ;; End Buttons
 
+(def igt-keys
+  [:narrow-phonetic-transcription
+   :phonetic-transcription
+   :transcription
+   :morpheme-break
+   :morpheme-gloss
+   :translations])
+
+;; :grammaticality
+;; :morpheme-break-ids
+;; :morpheme-gloss-ids
+
+(def metadata-keys
+  [:syntactic-category-string
+   :break-gloss-category
+   :date-elicited
+   :comments
+   :speaker-comments
+   :tags
+   :syntactic-category
+   :speaker
+   :enterer
+   :datetime-entered
+   :modifier
+   :datetime-modified
+   :verifier
+   :elicitation-method
+   :elicitor
+   :source
+   :files
+   :status
+   :syntax
+   :semantics
+   :uuid
+   :id])
+
 (def form-rows
   [{:key :transcription :type :string}
    {:key :morpheme-break :type :string}
