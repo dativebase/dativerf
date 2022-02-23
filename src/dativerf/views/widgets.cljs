@@ -32,6 +32,14 @@
    (str/join ", " (for [{:keys [first-name last-name]} users]
                              (str first-name " " last-name)))])
 
+(defmethod value-cell :coll-of-translations
+  [{translations :value}]
+  [re-com/v-box
+   ;; {:style {:min-height min-height-value-cell}}
+   :children
+   (for [{:keys [id transcription grammaticality]} translations]
+     ^{:key id} [re-com/p (str grammaticality transcription)])])
+
 (defmethod value-cell :default
   [value]
   (println "WARNING: unrepresentable entity: " (str value))

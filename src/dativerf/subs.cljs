@@ -59,3 +59,23 @@
  :login/logout-button-disabled?
  :<- [:login/state]
  (fn [login-state _] (not= login-state ::login/user-is-authenticated)))
+
+;; Forms Browse Navigation Subscriptions
+(re-frame/reg-sub ::forms-items-per-page
+                  (fn [db _] (:forms-paginator/items-per-page db)))
+(re-frame/reg-sub ::forms-current-page-forms
+                  (fn [db _] (:forms-paginator/current-page-forms db)))
+(re-frame/reg-sub ::forms-current-page
+                  (fn [db _] (:forms-paginator/current-page db)))
+(re-frame/reg-sub ::forms-last-page
+                  (fn [db _] (:forms-paginator/last-page db)))
+(re-frame/reg-sub ::forms-count
+                  (fn [db _] (:forms-paginator/count db)))
+(re-frame/reg-sub ::forms-first-form
+                  (fn [db _] (:forms-paginator/first-form db)))
+(re-frame/reg-sub ::forms-last-form
+                  (fn [db _] (:forms-paginator/last-form db)))
+
+(re-frame/reg-sub ::form-by-id
+                  (fn [db [_ form-id]]
+                    (get-in db [:old-states (:old db) :forms form-id])))

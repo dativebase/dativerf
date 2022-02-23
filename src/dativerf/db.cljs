@@ -19,7 +19,15 @@
    :login/username ""
    :login/password ""
    :login/state :dativerf.fsms.login/is-ready
-   :login/invalid-reason nil})
+   :login/invalid-reason nil
+   ;; forms browse state
+   :forms-paginator/items-per-page 10
+   :forms-paginator/current-page-forms []
+   :forms-paginator/current-page 1
+   :forms-paginator/last-page 1
+   :forms-paginator/count 0
+   :forms-paginator/first-form 0
+   :forms-paginator/last-form 0})
 
 (defn old [{:keys [old olds]}]
   (->> olds (filter (fn [{:keys [url]}] (= old url))) first))
