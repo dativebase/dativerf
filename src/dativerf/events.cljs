@@ -73,11 +73,11 @@
                               [{:keyCode 66
                                 :ctrlKey true
                                 :shiftKey true}]] ;; C-B
-                             [[:shortcut/files]
+                             #_[[:shortcut/files]
                               [{:keyCode 70
                                 :ctrlKey true
                                 :shiftKey true}]] ;; C-F
-                             [[:shortcut/collections]
+                             #_[[:shortcut/collections]
                               [{:keyCode 73
                                 :ctrlKey true
                                 :shiftKey true}]] ;; C-I
@@ -135,7 +135,7 @@
 (re-frame/reg-event-fx
  :shortcut/application-settings
  (fn-traced [{{:keys [user]} :db} _]
-            (when user {:fx [[:dispatch [::navigate :application-settings-view]]]})))
+            (when user {:fx [[:dispatch [::navigate :application-settings]]]})))
 
 ;; Login Page/Form Events
 
