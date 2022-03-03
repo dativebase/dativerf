@@ -6,8 +6,7 @@
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
-            [dativerf.views.form :as form]
-            [dativerf.views.widgets :as widgets]))
+            [dativerf.views.form :as form]))
 
 ;; Buttons
 
