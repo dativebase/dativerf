@@ -3,6 +3,7 @@
             [re-com.core :as re-com :refer [at]]
             [dativerf.events :as events]
             [dativerf.routes :as routes]
+            [dativerf.styles :as styles]
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
             [dativerf.views.form :as form]
@@ -246,6 +247,7 @@
 (defn form-index [index]
   [re-com/box
    :width "80px"
+   :class (styles/objlang)
    :child [re-com/label :label (str "(" (utils/commatize index) ")")]])
 
 (defn enumerated-form [index form-id]
