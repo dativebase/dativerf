@@ -10,9 +10,6 @@
 
 ;; Declares here just to make clj-kondo linter happy ...
 (declare defaults)
-(declare level1)
-(declare widget)
-
 (defglobal defaults
   (at-font-face {:font-family "GentiumPlus"}
                 {:src "url(./vendor/fonts/GentiumPlus-R.woff)"})
@@ -21,16 +18,20 @@
                 {:src "url(./vendor/fonts/GentiumPlus-I.woff)"})
   [:body {:color :black}])
 
+(declare level1)
 (defclass level1 []
   {:color :black})
 
+(declare attr-label)
 (defclass attr-label []
   {:width "180px"})
 
+(declare objlang)
 (defclass objlang []
   {:font-family "'GentiumPlus', serif"
    ;; :line-height "0.5em"
    :font-size "16pt"})
 
+(declare widget)
 (defclass widget []
   {:color :red})

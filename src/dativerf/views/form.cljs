@@ -1,14 +1,9 @@
 (ns dativerf.views.form
   (:require [re-frame.core :as re-frame]
             [re-com.core :as re-com :refer [at]]
-            [dativerf.events :as events]
-            [dativerf.routes :as routes]
             [dativerf.specs.form :as form-specs]
             [dativerf.styles :as styles]
-            [dativerf.subs :as subs]
-            [dativerf.utils :as utils]
-            [dativerf.views.widgets :as widgets]
-            [reagent.core :as reagent]))
+            [dativerf.subs :as subs]))
 
 ;; Buttons
 

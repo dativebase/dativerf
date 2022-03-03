@@ -1,9 +1,7 @@
 (ns dativerf.specs.form
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as str]
-            [cljs-time.core :as time]
-            [cljs-time.format :as timef]
-            [cljs-time.coerce :as coerce]))
+            [cljs-time.format :as timef]))
 
 ;; General specs and specs that should be moved to their own namespaces
 
