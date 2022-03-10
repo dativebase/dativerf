@@ -13,26 +13,6 @@
        :label "Profile"
        :level :level2])
 
-(defn old-instance-select []
-      [re-com/h-box
-       :gap "10px"
-       :align :center
-       :children
-       [[re-com/box
-         :child [re-com/single-dropdown
-                 :src (at)
-                 :width "250px"
-                 :choices @(re-frame/subscribe [::subs/olds])
-                 :model @(re-frame/subscribe [::subs/old])
-                 :label-fn :name
-                 :filter-box? true
-                 :on-change
-                 (fn [x]
-                     (re-frame/dispatch
-                       [::events/user-changed-current-old-instance x]))
-                 :disabled? @(re-frame/subscribe [:login/inputs-disabled?])]]]])
-
-
 (defn user-info []
       (let [user @(re-frame/subscribe [::subs/user])]
            [:ul
