@@ -6,7 +6,8 @@
    [dativerf.events :as events]))
 
 (defmulti tabs identity)
-(defmethod tabs :default [] [:div "No tab found for this route."])
+(defmethod tabs :default [route]
+  [:div (str "No tab found for this route: " route)])
 
 (def routes
   (atom
@@ -16,7 +17,8 @@
           "profile" :profile
           "forms" :forms
           "files" :files
-          "collections" :collections}]))
+          "collections" :collections
+          "application-settings" :application-settings}]))
 
 (defn parse
   [url]

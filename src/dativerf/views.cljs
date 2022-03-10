@@ -6,17 +6,18 @@
    [dativerf.events :as events]
    [dativerf.routes :as routes]
    [dativerf.subs :as subs]
+   dativerf.views.application-settings
+   dativerf.views.forms
    dativerf.views.home
    dativerf.views.login
    dativerf.views.profile))
 
 (defn title []
-  (let [name @(re-frame/subscribe [::subs/name])
-        user @(re-frame/subscribe [::subs/user])
+  (let [user @(re-frame/subscribe [::subs/user])
         old-id @(re-frame/subscribe [::subs/old])
         olds @(re-frame/subscribe [::subs/olds])
         old-name (some->> olds
-                          (filter (fn [o] (= old-id (:id o))))
+                          (filter (fn [o] (= old-id (:url o))))
                           first
                           :name)
         title (if (and user old-name)
@@ -34,6 +35,7 @@
    {:id :forms :label "Forms" :authenticated? true}
    {:id :files :label "Files" :authenticated? true}
    {:id :collections :label "Collections" :authenticated? true}
+   {:id :application-settings :label "Settings" :authenticated? true}
    {:id :login :label "Login" :authenticated? false}
    {:id :logout :label "Logout" :authenticated? true}])
 
@@ -51,23 +53,25 @@
 
 (defn menu []
   (let [user @(re-frame/subscribe [::subs/user])
-        model @(re-frame/subscribe [::subs/active-tab])
+        tab @(re-frame/subscribe [::subs/active-tab])
         authenticated? (boolean user)
         tabs (if authenticated?
                (authenticated-tabs menu-tabs)
-               (unauthenticated-tabs menu-tabs))]
+               (unauthenticated-tabs menu-tabs))
+        tab (if (some #{tab} (map :id tabs)) tab :home)]
     [re-com/horizontal-tabs
      :src (at)
      :tabs tabs
-     :model model
+     :model tab
      :on-change (fn [tab-id]
                   (re-frame/dispatch [::events/navigate tab-id]))]))
 
 (defn main-tab []
   (let [active-tab (re-frame/subscribe [::subs/active-tab])]
     [re-com/v-box
-     :src      (at)
-     :height   "100%"
+     :src (at)
+     :height "100%"
+     :max-width "800px"
      :padding "1em"
      :children [[title]
                 [menu]

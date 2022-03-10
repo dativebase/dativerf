@@ -5,17 +5,25 @@
 
 (re-frame/reg-sub ::name (fn [db] (:name db)))
 (re-frame/reg-sub ::old (fn [db] (:old db)))
-(re-frame/reg-sub ::olds (fn [db] (:olds db)))
+(re-frame/reg-sub ::olds (fn [db] (->> db :olds (sort-by :name))))
 (re-frame/reg-sub ::active-tab (fn [db _] (:active-tab db)))
 (re-frame/reg-sub ::re-pressed-example (fn [db _] (:re-pressed-example db)))
 (re-frame/reg-sub ::user (fn [db] (:user db)))
+
+(re-frame/reg-sub ::active-settings-tab (fn [db _] (:settings/active-tab db)))
 
 (re-frame/reg-sub :login/username (fn [db] (:login/username db)))
 (re-frame/reg-sub :login/password (fn [db] (:login/password db)))
 (re-frame/reg-sub :login/state (fn [db _] (:login/state db)))
 (re-frame/reg-sub :login/invalid-reason (fn [db _] (:login/invalid-reason db)))
 
-;; TODO: this should be a function of :login/state but I don't know why/when we would want to disable the login inputs ...
+(re-frame/reg-sub
+ ::application-settings
+ (fn [db _]
+   (get-in db [:old-states (:old db) :application-settings])))
+
+;; TODO: these should be a function of :login/state and :settings/state but I
+;; don't know why/when we would want to disable these inputs ...
 (re-frame/reg-sub :login/inputs-disabled? (constantly false))
 
 (re-frame/reg-sub
@@ -43,14 +51,34 @@
      [nil])))
 
 (re-frame/reg-sub
-  :login/login-button-disabled?
-  :<- [:login/state]
-  (fn [login-state _] (not= login-state ::login/is-ready)))
+ :login/login-button-disabled?
+ :<- [:login/state]
+ (fn [login-state _] (not= login-state ::login/is-ready)))
 
 (re-frame/reg-sub
-  :login/logout-button-disabled?
-  :<- [:login/state]
-  (fn [login-state _] (not= login-state ::login/user-is-authenticated)))
+ :login/logout-button-disabled?
+ :<- [:login/state]
+ (fn [login-state _] (not= login-state ::login/user-is-authenticated)))
+
+;; Forms Browse Navigation Subscriptions
+(re-frame/reg-sub ::forms-items-per-page
+                  (fn [db _] (:forms-paginator/items-per-page db)))
+(re-frame/reg-sub ::forms-current-page-forms
+                  (fn [db _] (:forms-paginator/current-page-forms db)))
+(re-frame/reg-sub ::forms-current-page
+                  (fn [db _] (:forms-paginator/current-page db)))
+(re-frame/reg-sub ::forms-last-page
+                  (fn [db _] (:forms-paginator/last-page db)))
+(re-frame/reg-sub ::forms-count
+                  (fn [db _] (:forms-paginator/count db)))
+(re-frame/reg-sub ::forms-first-form
+                  (fn [db _] (:forms-paginator/first-form db)))
+(re-frame/reg-sub ::forms-last-form
+                  (fn [db _] (:forms-paginator/last-form db)))
+
+(re-frame/reg-sub ::form-by-id
+                  (fn [db [_ form-id]]
+                    (get-in db [:old-states (:old db) :forms form-id])))
 
 (re-frame/reg-sub
   :login/user-name-visible?
@@ -65,9 +93,3 @@
       (case login-state
             ::login/user-is-authenticated (:username user)
             "Logged Out")))
-
-(re-frame/reg-sub
-  :profile/user-info
-  :<- [::user]
-  (fn [[user] _] user))
-

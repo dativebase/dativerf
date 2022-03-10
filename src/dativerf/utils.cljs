@@ -1,6 +1,13 @@
 (ns dativerf.utils
-  (:require [clojure.walk :as walk]
-            [camel-snake-kebab.core :as csk]))
+  (:require [camel-snake-kebab.core :as csk]
+            [cljs.pprint :as pprint]
+            [clojure.string :as str]
+            [clojure.walk :as walk]))
+
+(defn commatize [number]
+  (pprint/cl-format nil "~,,',:D" number))
+
+(defn kebab->space [s] (str/replace s #"-" " "))
 
 (defn ->kebab-case-recursive [d]
   (walk/postwalk
