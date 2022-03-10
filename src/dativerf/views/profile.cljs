@@ -13,11 +13,32 @@
        :label "Profile"
        :level :level2])
 
+(defn old-instance-select []
+      [re-com/h-box
+       :gap "10px"
+       :align :center
+       :children
+       [[re-com/box
+         :child [re-com/single-dropdown
+                 :src (at)
+                 :width "250px"
+                 :choices @(re-frame/subscribe [::subs/olds])
+                 :model @(re-frame/subscribe [::subs/old])
+                 :label-fn :name
+                 :filter-box? true
+                 :on-change
+                 (fn [x]
+                     (re-frame/dispatch
+                       [::events/user-changed-current-old-instance x]))
+                 :disabled? @(re-frame/subscribe [:login/inputs-disabled?])]]]])
+
+
 (defn user-info []
-      (let [user @(re-frame/subscribe [:profile/user-info])]
+      (let [user @(re-frame/subscribe [::subs/user])]
            [:ul
-            [:li (str [(:first-name user) (:last-name user)])]
-            [:li (:email user)]]
+            [:li (str "Name: " (:first-name user) " " (:last-name user))]
+            [:li (str "Email: " (:email user))]
+            ]
            ))
 
 (defn profile-tab []
@@ -27,7 +48,7 @@
        :padding "1em"
        :children [
                   [user-title]
-                  ;;[user-info]
+                  [user-info]
                   ]])
 
 (defmethod routes/tabs :profile [] [profile-tab])
