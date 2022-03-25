@@ -89,7 +89,8 @@
   [re-com/h-box
    :src (at)
    :children
-   [[igt-label (-> attr attrs :label)]
+   [(when @(re-frame/subscribe [::subs/forms-labels-on?])
+      [igt-label (-> attr attrs :label)])
     [re-com/box
      :max-width "500px"
      :child
@@ -101,7 +102,8 @@
   [re-com/h-box
    :src (at)
    :children
-   [[igt-label (-> attrs :translations :label)]
+   [(when @(re-frame/subscribe [::subs/forms-labels-on?])
+      [igt-label (-> attrs :translations :label)])
     [re-com/v-box
      :max-width "500px"
      :children

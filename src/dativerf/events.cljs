@@ -525,6 +525,10 @@
                   (merge paginator)))))
 
 (re-frame/reg-event-db
+ ::user-clicked-forms-labels-button
+ (fn-traced [db _] (update db :forms/labels-on? not)))
+
+(re-frame/reg-event-db
  ::forms-page-not-fetched
  (fn-traced [db [_event _]]
             ;; TODO handle this failure better. Probably logout and alert the user.

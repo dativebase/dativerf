@@ -76,6 +76,9 @@
 (re-frame/reg-sub ::forms-last-form
                   (fn [db _] (:forms-paginator/last-form db)))
 
+(re-frame/reg-sub ::forms-labels-on?
+                  (fn [db _] (:forms/labels-on? db)))
+
 (re-frame/reg-sub ::form-by-id
                   (fn [db [_ form-id]]
                     (get-in db [:old-states (:old db) :forms form-id])))
