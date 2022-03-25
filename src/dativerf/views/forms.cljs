@@ -98,8 +98,12 @@
   [re-com/md-circle-icon-button
    :md-icon-name "zmdi-label"
    :size :smaller
-   :tooltip "toggle labels"
-   :disabled? true])
+   :tooltip
+   (if @(re-frame/subscribe [::subs/forms-labels-on?])
+     "hide labels"
+     "show labels")
+   :on-click (fn [_] (re-frame/dispatch
+                      [::events/user-clicked-forms-labels-button]))])
 
 (defn help-button []
   [re-com/md-circle-icon-button

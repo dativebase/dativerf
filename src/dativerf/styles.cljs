@@ -29,8 +29,7 @@
 (declare objlang)
 (defclass objlang []
   {:font-family "'GentiumPlus', serif"
-   ;; :line-height "0.5em"
-   :font-size "16pt"})
+   :font-size "14pt"})
 
 (declare widget)
 (defclass widget []
