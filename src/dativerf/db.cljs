@@ -28,7 +28,8 @@
    :forms-paginator/count 0
    :forms-paginator/first-form 0
    :forms-paginator/last-form 0
-   :forms/labels-on? false})
+   :forms/labels-on? false
+   :forms/expanded? false})
 
 (defn old [{:keys [old olds]}]
   (->> olds (filter (fn [{:keys [url]}] (= old url))) first))
