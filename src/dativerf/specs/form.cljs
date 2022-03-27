@@ -42,7 +42,14 @@
                                :user/last-name
                                :user/role]))
 
-(s/def ::tag (s/keys :req-un [:int/id]))
+(s/def :tag/id :int/id)
+(s/def :tag/name string?)
+(s/def :tag/description string?)
+(s/def :tag/datetime-modified ::datetime-string)
+(s/def ::tag (s/keys :req-un [:tag/id
+                              :tag/name
+                              :tag/description
+                              :tag/datetime-modified]))
 (s/def ::tags (s/coll-of ::tag))
 
 (s/def :syntactic-category/id :int/id)
