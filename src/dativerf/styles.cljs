@@ -35,6 +35,13 @@
   {:font-family "'GentiumPlus', serif"
    :font-size "14pt"})
 
+(declare form)
+(defclass form []
+  {:font-family "'GentiumPlus', serif"
+   :font-size "14pt"
+   :width "660px"
+   :cursor "pointer"})
+
 (declare widget)
 (defclass widget []
   {:color :red})

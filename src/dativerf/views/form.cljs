@@ -2,6 +2,7 @@
   (:require [re-frame.core :as re-frame]
             [re-com.core :as re-com :refer [at]]
             [cljs-time.format :as timef]
+            [dativerf.events :as events]
             [dativerf.specs.form :as form-specs]
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
@@ -336,13 +337,14 @@
 
 (defn igt-form [form-id]
   (let [form (form-specs/parse-form @(re-frame/subscribe
-                                      [::subs/form-by-id form-id]))]
+                                      [::subs/form-by-id form-id]))
+        form-expanded? @(re-frame/subscribe [::subs/form-expanded? form-id])]
     [re-com/v-box
      :src (at)
-     :class (styles/objlang)
-     ;; TODO: expand / collapse form in response to clicks
-     :attr {:on-click (fn [& _] (println "clicked form vbox"))}
+     :class (styles/form)
+     :attr {:on-click (fn [& _] (re-frame/dispatch [::events/user-clicked-form
+                                                    form-id]))}
      :gap "1em"
      :children
      [[igt-form-igt form]
-      [igt-form-secondary form]]]))
+      (when form-expanded? [igt-form-secondary form])]]))

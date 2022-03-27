@@ -64,14 +64,16 @@
    :md-icon-name "zmdi-chevron-down"
    :size :smaller
    :tooltip "expand all"
-   :disabled? true])
+   :on-click (fn [_] (re-frame/dispatch
+                      [::events/user-clicked-expand-all-forms-button]))])
 
 (defn collapse-all-button []
   [re-com/md-circle-icon-button
    :md-icon-name "zmdi-chevron-up"
    :size :smaller
    :tooltip "collapse all"
-   :disabled? true])
+   :on-click (fn [_] (re-frame/dispatch
+                      [::events/user-clicked-collapse-all-forms-button]))])
 
 (defn search-button []
   [re-com/md-circle-icon-button

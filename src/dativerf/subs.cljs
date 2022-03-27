@@ -82,3 +82,10 @@
 (re-frame/reg-sub ::form-by-id
                   (fn [db [_ form-id]]
                     (get-in db [:old-states (:old db) :forms form-id])))
+
+(re-frame/reg-sub ::form-expanded?
+                  (fn [db [_ form-id]]
+                    (-> db
+                        (get-in [:old-states (:old db) :forms/view-state form-id
+                                 :expanded?])
+                        boolean)))

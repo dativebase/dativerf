@@ -329,7 +329,10 @@
             (println "WARNING: failed to fetch formsearches/new for this OLD")
             db))
 
-(defn reformat-forms-response [response]
+(defn default-form-view-state [{:keys [forms/expanded?]}]
+  {:expanded? expanded?})
+
+(defn reformat-forms-response [response db]
   (let [{:keys [items paginator]} (utils/->kebab-case-recursive response)
         {:keys [page items-per-page count]} paginator
         current-page page
@@ -337,12 +340,23 @@
         first-form (- (* current-page items-per-page)
                       (dec items-per-page))
         last-form (min count (+ first-form (dec items-per-page)))
-        fetched-at (.now js/Date)]
-    {:forms (->> items
-                 (map (juxt :uuid
-                            (fn [form] (assoc form :dative/fetched-at
-                                              fetched-at))))
-                 (into {}))
+        fetched-at (.now js/Date)
+        forms (->> items
+                   (map (juxt :uuid
+                              (fn [form]
+                                (assoc form
+                                       :dative/fetched-at fetched-at))))
+                   (into {}))
+        default-form-view-state* (default-form-view-state db)
+        forms-view-state (->> forms
+                              keys
+                              (map (juxt
+                                    identity
+                                    (constantly
+                                     default-form-view-state*)))
+                              (into {}))]
+    {:forms forms
+     :forms-view-state forms-view-state
      :paginator {:forms-paginator/items-per-page items-per-page
                  :forms-paginator/current-page-forms (mapv :uuid items)
                  :forms-paginator/current-page current-page
@@ -354,9 +368,12 @@
 (re-frame/reg-event-fx
  ::forms-first-page-fetched-initial
  (fn [{:keys [db]} [_event response]]
-            (let [{:keys [forms paginator]} (reformat-forms-response response)]
+            (let [{:keys [forms forms-view-state paginator]}
+                  (reformat-forms-response response db)]
               {:db (-> db
                        (update-in [:old-states (:old db) :forms] merge forms)
+                       (update-in [:old-states (:old db) :forms/view-state]
+                                  merge forms-view-state)
                        (merge paginator))
                :http-xhrio {:method :get
                             :uri (old/forms (db/old db))
@@ -381,9 +398,12 @@
 (re-frame/reg-event-db
  ::forms-last-page-fetched
  (fn-traced [db [_event response]]
-            (let [{:keys [forms paginator]} (reformat-forms-response response)]
+            (let [{:keys [forms forms-view-state paginator]}
+                  (reformat-forms-response response db)]
               (-> db
                   (update-in [:old-states (:old db) :forms] merge forms)
+                  (update-in [:old-states (:old db) :forms/view-state]
+                             merge forms-view-state)
                   (merge paginator)))))
 
 (re-frame/reg-event-db
@@ -507,20 +527,30 @@
         to-drop (max 0 (- form-count max-forms-in-memory))]
     (if (zero? to-drop)
       db
-      (assoc-in db [:old-states (:old db) :forms]
-                (->> forms
-                     vals
-                     (sort-by :dative/fetched-at)
-                     (drop to-drop)
-                     (map (juxt :uuid identity))
-                     (into {}))))))
+      (let [forms (->> forms
+                       vals
+                       (sort-by :dative/fetched-at)
+                       (drop to-drop)
+                       (map (juxt :uuid identity))
+                       (into {}))
+            forms-view-state (-> db
+                                 (get-in [:old-states (:old db)
+                                          :forms/view-state])
+                                 (select-keys (keys forms)))]
+        (-> db
+            (assoc-in [:old-states (:old db) :forms] forms)
+            (assoc-in [:old-states (:old db) :forms/view-state]
+                      forms-view-state))))))
 
 (re-frame/reg-event-db
  ::forms-page-fetched
  (fn-traced [db [_event response]]
-            (let [{:keys [forms paginator]} (reformat-forms-response response)]
+            (let [{:keys [forms forms-view-state paginator]}
+                  (reformat-forms-response response db)]
               (-> db
                   (update-in [:old-states (:old db) :forms] merge forms)
+                  (update-in [:old-states (:old db) :forms/view-state]
+                             merge forms-view-state)
                   prune-forms
                   (merge paginator)))))
 
@@ -551,3 +581,46 @@
                       {:uri (old/forms (db/old db))
                        :params {:page current-page
                                 :items_per_page items-per-page}})})))
+
+(re-frame/reg-event-db
+ ::user-clicked-form
+ (fn-traced [db [_event form-id]]
+            (update-in
+             db
+             [:old-states (:old db) :forms/view-state form-id :expanded?]
+             not)))
+
+(re-frame/reg-event-db
+ ::user-clicked-form
+ (fn-traced [db [_event form-id]]
+            (update-in
+             db
+             [:old-states (:old db) :forms/view-state form-id :expanded?]
+             not)))
+
+(defn- set-forms-expanded [forms-view-state expanded?]
+  (->> forms-view-state
+       (map (juxt key
+                  (comp
+                   (fn [form-view-state]
+                     (assoc form-view-state :expanded? expanded?))
+                   val)))
+       (into {})))
+
+(re-frame/reg-event-db
+ ::user-clicked-collapse-all-forms-button
+ (fn-traced [db _]
+            (-> db
+                (assoc :forms/expanded? false)
+                (update-in
+                 [:old-states (:old db) :forms/view-state]
+                 set-forms-expanded false))))
+
+(re-frame/reg-event-db
+ ::user-clicked-expand-all-forms-button
+ (fn-traced [db _]
+            (-> db
+                (assoc :forms/expanded? true)
+                (update-in
+                 [:old-states (:old db) :forms/view-state]
+                 set-forms-expanded true))))
