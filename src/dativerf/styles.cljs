@@ -24,7 +24,11 @@
 
 (declare attr-label)
 (defclass attr-label []
-  {:width "180px"})
+  {:width "180px"
+   :text-overflow "ellipsis"
+   :white-space "nowrap"
+   :overflow "hidden"
+   :color :gray})
 
 (declare objlang)
 (defclass objlang []
