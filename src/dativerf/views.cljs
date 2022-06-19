@@ -6,6 +6,7 @@
             [dativerf.routes :as routes]
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
+            [dativerf.utils :as utils]
             dativerf.views.application-settings
             dativerf.views.forms
             dativerf.views.home
@@ -64,17 +65,10 @@
                 (nil? authenticated?)))
           tabs))
 
-(def handler->tab
-  {:forms-last-page :forms
-   :forms-page :forms})
-
-(def tab->handler
-  {:forms :forms-last-page})
-
 (defn menu []
   (let [user @(re-frame/subscribe [::subs/user])
         {:as route :keys [handler]} @(re-frame/subscribe [::subs/active-route])
-        tab (get handler->tab handler handler)
+        tab (get utils/handler->tab handler handler)
         old @(re-frame/subscribe [::subs/old])
         olds @(re-frame/subscribe [::subs/olds])
         authenticated? (boolean user)
@@ -91,17 +85,17 @@
        (re-frame/dispatch
         (let [[tab-map] (for [tm tabs :when (= tab-id (:id tm))] tm)
               forms-previous-route @(re-frame/subscribe [::subs/forms-previous-route])
-              handler (get tab->handler tab-id tab-id)
+              handler (get utils/tab->handler tab-id tab-id)
               route
               (cond (and (= :forms tab-id)
                          forms-previous-route)
                     forms-previous-route
                     (:old-specific? tab-map)
-                    {:handler (get tab->handler tab-id tab-id)
+                    {:handler (get utils/tab->handler tab-id tab-id)
                      :route-params
                      {:old (:slug (db/old {:old old :olds olds}))}}
                     :else
-                    {:handler (get tab->handler tab-id tab-id)})]
+                    {:handler (get utils/tab->handler tab-id tab-id)})]
           [::events/navigate route])))]))
 
 (defn main-tab []

@@ -18,3 +18,17 @@
              (csk/->kebab-case x))
            x))
    d))
+
+(def handler->tab
+  {:forms-last-page :forms
+   :form-page :forms
+   :forms-page :forms})
+
+(def tab->handler
+  {:forms :forms-last-page})
+
+(defn forms-route? [{:keys [handler]}]
+  (= :forms (handler handler->tab)))
+
+(defn forms-browse-route? [{:keys [handler]}]
+  (some #{handler} [:forms-last-page :forms-page]))

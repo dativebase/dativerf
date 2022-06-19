@@ -17,7 +17,7 @@
            {[:page]
             {"/items-per-page/"
              {[:items-per-page] :forms-page}}}
-           [:id] :form-id}
+           "/" {[:id] :form-page}}
           "/files" :files
           "/logout" :logout
           "/settings" :settings}

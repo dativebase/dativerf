@@ -5,13 +5,25 @@
 Requirements
 ================================================================================
 
-- Each page should have a unique URL.
+In Progress
+--------------------------------------------------------------------------------
 
-  - It should be possible to visit a form at this url, e.g., /forms/1
-  - DONE. It should be possible to browse the most recent page of forms at this
-    URL, e.g., /forms.
-  - DONE. It should be possible to browse a specific page of forms at this URL,
-    e.g., /forms/page/1/items-per-page/5
+- Utilities for constructing route maps should be defined in the routes ns.
+
+   - Right now, the events ns contains a lot of duplicative boilerplate around
+     constructing routes.
+
+
+Ready
+--------------------------------------------------------------------------------
+
+
+Backlog
+--------------------------------------------------------------------------------
+
+- URLs should work on page refresh or on a fresh page. Currently they do not.
+  One reason is that the in-memory DB is lost and therefore the authenticated
+  OLD cannot be retrieved.
 
 - Form navigation should use its cache so that network requests are made when
   appropriate.
@@ -22,9 +34,6 @@ Requirements
     command when clicking the "Forms" tab or a navigation button to ignore
     the cache.
 
-- The URL should indicate the authenticated OLD, e.g., /blaold/forms/1 should
-  resolve to a display of the form with ID = 1 of the Blackfoot OLD.
-
 - It should be possible to manage authentication more easily in DativeRF.
 
   - It should be possible to switch between OLDs more easily.
@@ -32,13 +41,24 @@ Requirements
     authenticated.
   - A failure to de-authenticated should never break the app.
 
-- Unnecessary data should not be gathered up front.
 
-  - For example, previously we were fetching an OLD's application settings, its
-    data to create a new form, and its data to create a new form search upon
-    every login.
+Done
+--------------------------------------------------------------------------------
 
- - Utilities for constructing route maps should be defined in the routes ns.
+- DONE. It should be possible to visit a form at this url, e.g., /forms/1
+- DONE. Each page should have a unique URL.
 
-   - Right now, the events ns contains a lot of duplicative boilerplate around
-     constructing routes.
+  - DONE. When form 1 is displayed, the URL path should display /forms/1.
+  - DONE. When the most recent page of forms is displayed, the URL path should
+    display /forms.
+  - DONE. When a specific page of forms is displayed, the URL path should
+    display /forms/page/1/items-per-page/5, for example.
+
+- DONE. The URL should indicate the authenticated OLD, e.g., /blaold/forms/1
+  should resolve to a display of the form with ID = 1 of the Blackfoot OLD.
+
+- DONE. Unnecessary data should not be gathered up front.
+
+  - DONE. For example, previously we were fetching an OLD's application
+    settings, its data to create a new form, and its data to create a new form
+    search upon every login.

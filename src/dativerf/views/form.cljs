@@ -214,9 +214,12 @@
      [re-com/hyperlink
       :label (str id)
       :on-click (fn [& x]
-                  ;; TODO
-                  (println x)
-                  (println "visit this form"))
+                  (re-frame/dispatch
+                   [::events/navigate
+                    {:handler :form-page
+                     :route-params
+                     {:old @(re-frame/subscribe [::subs/old-slug])
+                      :id id}}]))
       :tooltip "view this form"]]]])
 
 (defn tags-as-string [tags]

@@ -87,6 +87,13 @@
                   (fn [db [_ form-id]]
                     (get-in db [:old-states (:old db) :forms form-id])))
 
+(re-frame/reg-sub ::form-by-int-id
+                  (fn [db [_ form-id]]
+                    (->> (get-in db [:old-states (:old db) :forms])
+                         vals
+                         (filter (fn [{:keys [id]}] (= form-id id)))
+                         first)))
+
 (re-frame/reg-sub ::form-expanded?
                   (fn [db [_ form-id]]
                     (-> db
