@@ -5,17 +5,21 @@
 Requirements
 ================================================================================
 
+These requirements are not exhaustive. I am using them right now as a simple
+kanban board and to keep track of a backlog of ideas. For the "Dative v2 MVP"
+project, there is a private GitHub project board at
+https://github.com/orgs/dativebase/projects/10.
+
+
 In Progress
 --------------------------------------------------------------------------------
-
-- Utilities for constructing route maps should be defined in the routes ns.
-
-   - Right now, the events ns contains a lot of duplicative boilerplate around
-     constructing routes.
 
 
 Ready
 --------------------------------------------------------------------------------
+
+- The authenticated OLD's application settings should be displayed at a URL path
+  that contains the OLD slug.
 
 
 Backlog
@@ -24,7 +28,6 @@ Backlog
 - URLs should work on page refresh or on a fresh page. Currently they do not.
   One reason is that the in-memory DB is lost and therefore the authenticated
   OLD cannot be retrieved.
-
 - Form navigation should use its cache so that network requests are made when
   appropriate.
 
@@ -45,6 +48,10 @@ Backlog
 Done
 --------------------------------------------------------------------------------
 
+- DONE. When a user is logged out, we route them to the login GUI but the path
+  still shows the /oldslug/logout path. It should show the /login path.
+- DONE. The db ns needs a utility for accessing the slug of the authenticated
+  OLD. This will make the events ns more clear, I think.
 - DONE. It should be possible to visit a form at this url, e.g., /forms/1
 - DONE. Each page should have a unique URL.
 
@@ -56,7 +63,6 @@ Done
 
 - DONE. The URL should indicate the authenticated OLD, e.g., /blaold/forms/1
   should resolve to a display of the form with ID = 1 of the Blackfoot OLD.
-
 - DONE. Unnecessary data should not be gathered up front.
 
   - DONE. For example, previously we were fetching an OLD's application
