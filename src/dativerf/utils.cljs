@@ -22,13 +22,17 @@
 (def handler->tab
   {:forms-last-page :forms
    :form-page :forms
-   :forms-page :forms})
+   :forms-page :forms
+   :old-settings-input-validation :old-settings})
 
 (def tab->handler
   {:forms :forms-last-page})
 
 (defn forms-route? [{:keys [handler]}]
-  (= :forms (handler handler->tab)))
+  (= :forms (handler handler->tab handler)))
 
 (defn forms-browse-route? [{:keys [handler]}]
   (some #{handler} [:forms-last-page :forms-page]))
+
+(defn old-settings-route? [{:keys [handler]}]
+  (= :old-settings (handler handler->tab handler)))

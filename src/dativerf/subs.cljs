@@ -20,7 +20,7 @@
 (re-frame/reg-sub :login/invalid-reason (fn [db _] (:login/invalid-reason db)))
 
 (re-frame/reg-sub
- ::application-settings
+ ::old-settings
  (fn [db _]
    (get-in db [:old-states (:old db) :application-settings])))
 
@@ -82,6 +82,8 @@
                   (fn [db _] (:forms/previous-route db)))
 (re-frame/reg-sub ::forms-labels-on?
                   (fn [db _] (:forms/labels-on? db)))
+(re-frame/reg-sub ::old-settings-previous-route
+                  (fn [db _] (:old-settings/previous-route db)))
 
 (re-frame/reg-sub ::form-by-id
                   (fn [db [_ form-id]]
