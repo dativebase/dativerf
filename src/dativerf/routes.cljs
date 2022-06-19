@@ -1,9 +1,8 @@
 (ns dativerf.routes
-  (:require
-   [bidi.bidi :as bidi]
-   [pushy.core :as pushy]
-   [re-frame.core :as re-frame]
-   [dativerf.events :as events]))
+  (:require [bidi.bidi :as bidi]
+            [pushy.core :as pushy]
+            [re-frame.core :as re-frame]
+            [dativerf.events :as events]))
 
 (def routes
   (atom
@@ -22,7 +21,8 @@
           "/logout" :logout
           "/settings"
           {"" :old-settings
-           "/input-validation" :old-settings-input-validation}}}]))
+           "/input-validation" :old-settings-input-validation}
+          "/profile" :profile}}]))
 
 (defmulti tabs :handler)
 

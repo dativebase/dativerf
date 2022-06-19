@@ -10,7 +10,8 @@
             dativerf.views.old-settings
             dativerf.views.forms
             dativerf.views.home
-            dativerf.views.login))
+            dativerf.views.login
+            dativerf.views.profile))
 
 (defn title []
   (let [user @(re-frame/subscribe [::subs/user])
@@ -35,6 +36,9 @@
     :authenticated? true}
    {:id :old-settings
     :label "Settings"
+    :authenticated? true}
+   {:id :profile
+    :label "Profile"
     :authenticated? true}
    {:id :login
     :label "Login"
