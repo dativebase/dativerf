@@ -20,8 +20,9 @@
            "/" {[:id] :form-page}}
           "/files" :files
           "/logout" :logout
-          "/settings" :settings}
-         "application-settings" :application-settings}]))
+          "/settings"
+          {"" :old-settings
+           "/input-validation" :old-settings-input-validation}}}]))
 
 (defmulti tabs :handler)
 

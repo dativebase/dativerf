@@ -7,7 +7,7 @@
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
-            dativerf.views.application-settings
+            dativerf.views.old-settings
             dativerf.views.forms
             dativerf.views.home
             dativerf.views.login))
@@ -16,10 +16,7 @@
   (let [user @(re-frame/subscribe [::subs/user])
         old-id @(re-frame/subscribe [::subs/old])
         olds @(re-frame/subscribe [::subs/olds])
-        old-name (some->> olds
-                          (filter (fn [o] (= old-id (:url o))))
-                          first
-                          :name)
+        old-name (db/old-name {:old old-id :olds olds})
         title (if (and user old-name)
                 (str "Dative: " old-name)
                 "Dative")]
@@ -32,25 +29,18 @@
 (def menu-tabs
   [{:id :home
     :label "Home"
-    :old-specific? false
     :authenticated? nil}
    {:id :forms
     :label "Forms"
-    :old-specific? true
     :authenticated? true}
-   #_{:id :files :label "Files" :authenticated? true}
-   #_{:id :collections :label "Collections" :authenticated? true}
-   {:id :application-settings
+   {:id :old-settings
     :label "Settings"
-    :old-specific? false
     :authenticated? true}
    {:id :login
     :label "Login"
-    :old-specific? false
     :authenticated? false}
    {:id :logout
     :label "Logout"
-    :old-specific? true
     :authenticated? true}])
 
 (defn- unauthenticated-tabs [tabs]
@@ -85,17 +75,19 @@
        (re-frame/dispatch
         (let [[tab-map] (for [tm tabs :when (= tab-id (:id tm))] tm)
               forms-previous-route @(re-frame/subscribe [::subs/forms-previous-route])
+              old-settings-previous-route @(re-frame/subscribe
+                                            [::subs/old-settings-previous-route])
               handler (get utils/tab->handler tab-id tab-id)
               route
-              (cond (and (= :forms tab-id)
-                         forms-previous-route)
+              (cond (and (= :forms tab-id) forms-previous-route)
                     forms-previous-route
-                    (:old-specific? tab-map)
-                    {:handler (get utils/tab->handler tab-id tab-id)
-                     :route-params
-                     {:old (:slug (db/old {:old old :olds olds}))}}
+                    (and (= :old-settings tab-id) old-settings-previous-route)
+                    old-settings-previous-route
                     :else
-                    {:handler (get utils/tab->handler tab-id tab-id)})]
+                    (cond-> {:handler (get utils/tab->handler tab-id tab-id)}
+                      (:authenticated? tab-map)
+                      (assoc :route-params
+                             {:old (db/old-slug {:old old :olds olds})})))]
           [::events/navigate route])))]))
 
 (defn main-tab []

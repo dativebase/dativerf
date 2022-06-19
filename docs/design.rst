@@ -2,6 +2,7 @@
   DativeRF Design Document
 ================================================================================
 
+
 Requirements
 ================================================================================
 
@@ -18,13 +19,13 @@ In Progress
 Ready
 --------------------------------------------------------------------------------
 
-- The authenticated OLD's application settings should be displayed at a URL path
-  that contains the OLD slug.
 
 
 Backlog
 --------------------------------------------------------------------------------
 
+- Successful authentication should result in the home page of the authenticated
+  OLD being rendered under the home tab.
 - URLs should work on page refresh or on a fresh page. Currently they do not.
   One reason is that the in-memory DB is lost and therefore the authenticated
   OLD cannot be retrieved.
@@ -36,6 +37,8 @@ Backlog
   - Allow for some manual control over this. For example, a user could hold
     command when clicking the "Forms" tab or a navigation button to ignore
     the cache.
+  - This applies to other OLD resources also, not just forms. For example, the
+    OLD's application-settings cache needs to be invalidated also.
 
 - It should be possible to manage authentication more easily in DativeRF.
 
@@ -48,6 +51,8 @@ Backlog
 Done
 --------------------------------------------------------------------------------
 
+- DONE. The authenticated OLD's application settings should be displayed at a
+  URL path that contains the OLD slug.
 - DONE. When a user is logged out, we route them to the login GUI but the path
   still shows the /oldslug/logout path. It should show the /login path.
 - DONE. The db ns needs a utility for accessing the slug of the authenticated

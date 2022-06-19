@@ -31,9 +31,12 @@
    :forms/labels-on? false
    :forms/expanded? false
    ;; routing state
-   :forms/previous-route nil})
+   :forms/previous-route nil
+   :forms/previous-browse-route nil
+   :old-settings/previous-route nil})
 
 (defn old [{:keys [old olds]}]
   (->> olds (filter (fn [{:keys [url]}] (= old url))) first))
 
 (defn old-slug [db] (:slug (old db)))
+(defn old-name [db] (:name (old db)))

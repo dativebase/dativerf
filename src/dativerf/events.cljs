@@ -13,6 +13,8 @@
    [re-frame.core :as re-frame]
    [re-pressed.core :as rp]))
 
+(defn- warn [msg] (println (str "WARNING: " msg)))
+
 (def get-request
   {:method :get
    :format (ajax/json-request-format)
@@ -83,7 +85,9 @@
                    (utils/forms-route? route)
                    (assoc :forms/previous-route route)
                    (utils/forms-browse-route? route)
-                   (assoc :forms/previous-browse-route route))}))
+                   (assoc :forms/previous-browse-route route)
+                   (utils/old-settings-route? route)
+                   (assoc :old-settings/previous-route route))}))
 
 (def app-dative-servers-url "https://app.dative.ca/servers.json")
 
@@ -106,14 +110,9 @@
 (re-frame/reg-event-db
  ::olds-not-fetched
  (fn-traced [db [_ response]]
-            (println "WARNING: failed to fetch the olds from the server!")
+            (warn "failed to fetch the olds from the server!")
             (prn response)
             db))
-
-(re-frame/reg-event-db
- ::set-settings-active-tab
- (fn-traced [db [_ active-settings-tab]]
-            (assoc db :settings/active-tab active-settings-tab)))
 
 (re-frame/reg-event-fx
  ::set-active-route
@@ -136,19 +135,10 @@
                               [{:keyCode 66
                                 :ctrlKey true
                                 :shiftKey true}]] ;; C-B
-                             #_[[:shortcut/files]
-                              [{:keyCode 70
-                                :ctrlKey true
-                                :shiftKey true}]] ;; C-F
-                             #_[[:shortcut/collections]
-                              [{:keyCode 73
-                                :ctrlKey true
-                                :shiftKey true}]] ;; C-I
-                             [[:shortcut/application-settings]
+                             [[:shortcut/old-settings]
                               [{:keyCode 188
                                 :ctrlKey true
-                                :shiftKey true}]] ;; C-,
-                             ]
+                                :shiftKey true}]]] ;; C-,
                 :clear-keys
                 [[{:keyCode 27}]]
 
@@ -210,10 +200,13 @@
                                 :route-params {:old (db/old-slug db)}}]]]})))
 
 (re-frame/reg-event-fx
- :shortcut/application-settings
- (fn-traced [{{:keys [user]} :db} _]
-            (when user {:fx [[:dispatch [::navigate
-                                         {:handler :application-settings}]]]})))
+ :shortcut/old-settings
+ (fn-traced [{{:keys [user] :as db} :db} _]
+            (when user {:fx [[:dispatch
+                              [::navigate
+                               (or (:old-settings/previous-route db)
+                                   {:handler :old-settings
+                                    :route-params {:old (db/old-slug db)}})]]]})))
 
 ;; Login Page/Form Events
 
@@ -321,32 +314,23 @@
 (re-frame/reg-event-fx
  ::fetch-form
  (fn-traced [{:keys [db]} [_ form-id]]
-            (let [route {:handler :form-page
-                         :route-params
-                         {:old (db/old-slug db)
-                          :id form-id}}]
-              {:http-xhrio
-               (assoc get-request
-                      :uri (old/form (db/old db) form-id)
-                      :on-success [::form-fetched]
-                      :on-failure [::form-not-fetched form-id])})))
+            {:http-xhrio
+             (assoc get-request
+                    :uri (old/form (db/old db) form-id)
+                    :on-success [::form-fetched]
+                    :on-failure [::form-not-fetched form-id])}))
 
 (re-frame/reg-event-fx
  ::fetch-forms-page
  (fn-traced [{:keys [db]} [_ page items-per-page]]
-            (let [route {:handler :forms-page
-                         :route-params
-                         {:old (db/old-slug db)
-                          :items-per-page items-per-page
-                          :page page}}]
-              {:http-xhrio
-               (assoc get-request
-                      :uri (-> db db/old old/forms)
-                      :params {:page page
-                               :items_per_page items-per-page}
-                      :on-success [::forms-page-fetched]
-                      :on-failure [::forms-page-not-fetched
-                                   page items-per-page])})))
+            {:http-xhrio
+             (assoc get-request
+                    :uri (-> db db/old old/forms)
+                    :params {:page page
+                             :items_per_page items-per-page}
+                    :on-success [::forms-page-fetched]
+                    :on-failure [::forms-page-not-fetched
+                                 page items-per-page])}))
 
 ;; Context:
 ;; To get the last page of an OLD's forms set, it is necessary to first make a
@@ -406,6 +390,15 @@
                                           ::server-not-authenticated)
                        (assoc :user nil))})))
 
+(re-frame/reg-event-fx
+ ::fetch-applicationsettings
+ (fn-traced [{:keys [db]} [_ form-id]]
+            {:http-xhrio
+             (assoc get-request
+                    :uri (old/applicationsettings (db/old db))
+                    :on-success [::applicationsettings-fetched]
+                    :on-failure [::applicationsettings-not-fetched])}))
+
 (re-frame/reg-event-db
  ::applicationsettings-fetched
  (fn-traced [db [_event application-settings-entities]]
@@ -419,7 +412,7 @@
  ::applicationsettings-not-fetched
  (fn-traced [db [_event _response]]
             ;; TODO handle this failure better. Probably logout and alert the user.
-            (println "WARNING: failed to fetch the applicationsettings for this OLD")
+            (warn "failed to fetch the applicationsettings for this OLD")
             db))
 
 (re-frame/reg-event-db
@@ -434,7 +427,7 @@
  ::forms-new-not-fetched
  (fn-traced [db [_event _]]
             ;; TODO handle this failure better. Probably logout and alert the user.
-            (println "WARNING: failed to fetch forms/new for this OLD")
+            (warn "failed to fetch forms/new for this OLD")
             db))
 
 (re-frame/reg-event-db
@@ -445,29 +438,26 @@
               [:old-states (:old db) :formsearches-new]
               (utils/->kebab-case-recursive formsearches-new))))
 
+;; Fetch Failures
+;; TODO handle these failures better.
+
 (re-frame/reg-event-db
  ::formsearches-new-not-fetched
  (fn-traced [db [_event _]]
-            ;; TODO handle this failure better. Probably logout and alert the user.
-            (println "WARNING: failed to fetch formsearches/new for this OLD")
+            (warn "failed to fetch formsearches/new for this OLD")
             db))
 
 (re-frame/reg-event-db
  ::forms-page-not-fetched
  (fn-traced [db [_ page items-per-page]]
-            ;; TODO handle this failure better. Probably logout and alert the user.
-            (println
-             "WARNING: failed to fetch forms page"
-             page
-             "with %s items per page"
-             items-per-page)
+            (warn (str "failed to fetch forms page " page
+                       " with %s items per page " items-per-page))
             db))
 
 (re-frame/reg-event-db
  ::form-not-fetched
  (fn-traced [db [_ form-id]]
-            ;; TODO handle this failure better. Probably logout and alert the user.
-            (println "WARNING: failed to fetch form" form-id)
+            (warn (str "failed to fetch form " form-id))
             db))
 
 (re-frame/reg-event-db
@@ -491,7 +481,7 @@
 (re-frame/reg-event-db
  ::server-not-deauthenticated
  (fn-traced [db [event _]]
-            (println "WARNING: Failed to logout of OLD.")
+            (warn "Failed to logout of OLD.")
             (-> db
                 (assoc :user nil
                        :active-route {:handler :login})
