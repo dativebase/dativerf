@@ -23,6 +23,21 @@
 (defn default-form-view-state [{:keys [forms/expanded?]}]
   {:expanded? expanded?})
 
+(defn- forms->uuid-keyed-forms-map [forms fetched-at]
+  (->> forms
+       (map (juxt :uuid
+                  (fn [form] (assoc form :dative/fetched-at fetched-at))))
+       (into {})))
+
+(defn- forms->view-states [forms db]
+  (let [default-form-view-state* (default-form-view-state db)]
+    (->> forms
+         keys
+         (map (juxt
+               identity
+               (constantly default-form-view-state*)))
+         (into {}))))
+
 (defn reformat-forms-response
   "Reformat a GET /forms response from an OLD:
   - Make it all kebab-case.
@@ -43,20 +58,8 @@
                       (dec items-per-page))
         last-form (min count (+ first-form (dec items-per-page)))
         fetched-at (.now js/Date)
-        forms (->> items
-                   (map (juxt :uuid
-                              (fn [form]
-                                (assoc form
-                                       :dative/fetched-at fetched-at))))
-                   (into {}))
-        default-form-view-state* (default-form-view-state db)
-        forms-view-state (->> forms
-                              keys
-                              (map (juxt
-                                    identity
-                                    (constantly
-                                     default-form-view-state*)))
-                              (into {}))]
+        forms (forms->uuid-keyed-forms-map items fetched-at)
+        forms-view-state (forms->view-states forms db)]
     {:forms forms
      :forms-view-state forms-view-state
      :paginator {:forms-paginator/items-per-page items-per-page
@@ -74,7 +77,13 @@
 
 (re-frame/reg-event-fx
  ::navigate
- (fn-traced [_ [_ route]] {:navigate route}))
+ (fn-traced [{:keys [db]} [_ route]]
+            {:navigate route
+             :db (cond-> db
+                   (utils/forms-route? route)
+                   (assoc :forms/previous-route route)
+                   (utils/forms-browse-route? route)
+                   (assoc :forms/previous-browse-route route))}))
 
 (def app-dative-servers-url "https://app.dative.ca/servers.json")
 
@@ -242,6 +251,14 @@
                 (fsms/update-state login/state-machine :login/state event))))
 
 (re-frame/reg-event-fx
+ ::user-clicked-back-to-browse-button
+ (fn-traced [{:keys [db]} _]
+            {:fx [[:dispatch [::navigate
+                              (or (:forms/previous-browse-route db)
+                                  {:handler :forms-last-page
+                                   :route-params {:old (:slug (db/old db))}})]]]}))
+
+(re-frame/reg-event-fx
  ::user-clicked-login
  (fn-traced [{:keys [db]} _]
             (let [{:keys [login/username login/password]} db]
@@ -300,6 +317,20 @@
               :response-format (ajax/json-response-format {:keywords? true})
               :on-success [::server-deauthenticated]
               :on-failure [::server-not-deauthenticated]}}))
+
+(re-frame/reg-event-fx
+ ::fetch-form
+ (fn-traced [{:keys [db]} [_ form-id]]
+            (let [route {:handler :form-page
+                         :route-params
+                         {:old (:slug (db/old db))
+                          :id form-id}}]
+              {:db (assoc db :forms/previous-route route)
+               :http-xhrio
+               (assoc get-request
+                      :uri (old/form (db/old db) form-id)
+                      :on-success [::form-fetched]
+                      :on-failure [::form-not-fetched form-id])})))
 
 (re-frame/reg-event-fx
  ::fetch-forms-page
@@ -436,6 +467,13 @@
             db))
 
 (re-frame/reg-event-db
+ ::form-not-fetched
+ (fn-traced [db [_ form-id]]
+            ;; TODO handle this failure better. Probably logout and alert the user.
+            (println "WARNING: failed to fetch form" form-id)
+            db))
+
+(re-frame/reg-event-db
  ::server-not-authenticated
  (fn-traced [db [event {:keys [response]}]]
             (let [error-msg (:error response "Undetermined error.")]
@@ -498,6 +536,19 @@
                       forms-view-state))))))
 
 (re-frame/reg-event-db
+ ::form-fetched
+ (fn-traced [db [_event response]]
+            (let [form (utils/->kebab-case-recursive response)
+                  fetched-at (.now js/Date)
+                  forms (forms->uuid-keyed-forms-map [form] fetched-at)
+                  forms-view-state (forms->view-states forms db)]
+              (-> db
+                  (update-in [:old-states (:old db) :forms] merge forms)
+                  (update-in [:old-states (:old db) :forms/view-state]
+                             merge forms-view-state)
+                  prune-forms))))
+
+(re-frame/reg-event-db
  ::forms-page-fetched
  (fn-traced [db [_event response]]
             (let [{:keys [forms forms-view-state paginator]}
@@ -531,14 +582,6 @@
                           :forms-paginator/last-page last-page
                           :forms/previous-route route)
                :fx [[:dispatch [::navigate route]]]})))
-
-(re-frame/reg-event-db
- ::user-clicked-form
- (fn-traced [db [_event form-id]]
-            (update-in
-             db
-             [:old-states (:old db) :forms/view-state form-id :expanded?]
-             not)))
 
 (re-frame/reg-event-db
  ::user-clicked-form

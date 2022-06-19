@@ -132,6 +132,14 @@
    :on-click (fn [_] (re-frame/dispatch
                       [::events/user-clicked-forms-labels-button]))])
 
+(defn back-to-browse-button []
+  [re-com/md-circle-icon-button
+   :md-icon-name "zmdi-fast-rewind"
+   :size :smaller
+   :tooltip "back to forms browse"
+   :on-click (fn [_] (re-frame/dispatch
+                      [::events/user-clicked-back-to-browse-button]))])
+
 (defn help-button []
   [re-com/md-circle-icon-button
    :md-icon-name "zmdi-help"
@@ -317,6 +325,23 @@
    [[browse-navigation]
     [forms-enumeration]]])
 
+(defn- form-navigation []
+  [re-com/h-box
+   :src (at)
+   :gap "5px"
+   :size "auto"
+   :children [[back-to-browse-button]
+              [labels-button]]])
+
+(defn- form-tab [form]
+  [re-com/v-box
+   :src (at)
+   :gap "1em"
+   :padding "1em"
+   :children
+   [[form-navigation]
+    [form/igt-form (:uuid form)]]])
+
 (defmethod routes/tabs :forms-page
   [{{:keys [page items-per-page]} :route-params}]
   (let [current-page @(re-frame/subscribe [::subs/forms-current-page])
@@ -346,3 +371,10 @@
         (assoc-in (forms-page-route) [:route-params :page] last-page)])
       (do (re-frame/dispatch [::events/fetch-forms-last-page])
           [re-com/throbber :size :large]))))
+
+(defmethod routes/tabs :form-page [{{:keys [id]} :route-params}]
+  (if-let [form @(re-frame/subscribe [::subs/form-by-int-id (js/parseInt id)])]
+    [form-tab form]
+    (do
+      (re-frame/dispatch [::events/fetch-form id])
+      [re-com/throbber :size :large])))

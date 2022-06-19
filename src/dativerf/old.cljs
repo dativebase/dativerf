@@ -10,5 +10,6 @@
 (defn forms-new [old] (str (url old) "forms/new"))
 (defn formsearches-new [old] (str (url old) "formsearches/new"))
 (defn forms [old] (str (url old) "forms"))
+(defn form [old id] (str (url old) "forms/" id))
 (defn login-authenticate [old] (str (url old) "login/authenticate"))
 (defn login-logout [old] (str (url old) "login/logout"))
