@@ -181,7 +181,7 @@
                    (if (:user db)
                      [::navigate
                       {:handler :logout
-                       :route-params {:old (:slug (db/old db))}}]
+                       :route-params {:old (db/old-slug db)}}]
                      [::navigate {:handler :login}])]]}))
 
 (re-frame/reg-event-fx
@@ -191,7 +191,7 @@
                               [::navigate
                                (or (:forms/previous-route db)
                                    {:handler :forms-last-page
-                                    :route-params {:old (:slug (db/old db))}})]]]})))
+                                    :route-params {:old (db/old-slug db)}})]]]})))
 
 (re-frame/reg-event-fx
  :shortcut/files
@@ -199,7 +199,7 @@
             (when user {:fx [[:dispatch
                               [::navigate
                                {:handler :files
-                                :route-params {:old (:slug (db/old db))}}]]]})))
+                                :route-params {:old (db/old-slug db)}}]]]})))
 
 (re-frame/reg-event-fx
  :shortcut/collections
@@ -207,7 +207,7 @@
             (when user {:fx [[:dispatch
                               [::navigate
                                {:handler :collections
-                                :route-params {:old (:slug (db/old db))}}]]]})))
+                                :route-params {:old (db/old-slug db)}}]]]})))
 
 (re-frame/reg-event-fx
  :shortcut/application-settings
@@ -256,7 +256,7 @@
             {:fx [[:dispatch [::navigate
                               (or (:forms/previous-browse-route db)
                                   {:handler :forms-last-page
-                                   :route-params {:old (:slug (db/old db))}})]]]}))
+                                   :route-params {:old (db/old-slug db)}})]]]}))
 
 (re-frame/reg-event-fx
  ::user-clicked-login
@@ -323,10 +323,9 @@
  (fn-traced [{:keys [db]} [_ form-id]]
             (let [route {:handler :form-page
                          :route-params
-                         {:old (:slug (db/old db))
+                         {:old (db/old-slug db)
                           :id form-id}}]
-              {:db (assoc db :forms/previous-route route)
-               :http-xhrio
+              {:http-xhrio
                (assoc get-request
                       :uri (old/form (db/old db) form-id)
                       :on-success [::form-fetched]
@@ -337,11 +336,10 @@
  (fn-traced [{:keys [db]} [_ page items-per-page]]
             (let [route {:handler :forms-page
                          :route-params
-                         {:old (:slug (db/old db))
+                         {:old (db/old-slug db)
                           :items-per-page items-per-page
                           :page page}}]
-              {:db (assoc db :forms/previous-route route)
-               :http-xhrio
+              {:http-xhrio
                (assoc get-request
                       :uri (-> db db/old old/forms)
                       :params {:page page
@@ -378,15 +376,14 @@
          items-per-page (:forms-paginator/items-per-page paginator)
          route {:handler :forms-page
                 :route-params
-                {:old (:slug (db/old db))
+                {:old (db/old-slug db)
                  :items-per-page items-per-page
                  :page last-page}}]
      (let [fx {:db (-> db
                        (update-in [:old-states (:old db) :forms] merge forms)
                        (update-in [:old-states (:old db) :forms/view-state]
                                   merge forms-view-state)
-                       (merge paginator)
-                       (assoc :forms/previous-route route))}]
+                       (merge paginator))}]
        (if (= 1 last-page)
          fx
          (assoc fx :fx [[:dispatch [::navigate route]]]))))))
@@ -403,7 +400,7 @@
                :fx [[:dispatch [::navigate
                                 {:handler :forms-last-page
                                  :route-params
-                                 {:old (:slug (db/old db))}}]]]}
+                                 {:old (db/old-slug db)}}]]]}
               {:db (-> db
                        (fsms/update-state login/state-machine :login/state
                                           ::server-not-authenticated)
@@ -481,15 +478,15 @@
                   (assoc :login/invalid-reason error-msg)
                   (fsms/update-state login/state-machine :login/state event)))))
 
-(re-frame/reg-event-db
+(re-frame/reg-event-fx
  ::server-deauthenticated
- (fn-traced [db [event _]]
-            (-> db
-                (assoc :user nil
-                       :active-route {:handler :login})
-                (update :old-states
-                        (fn [old-states] (dissoc old-states (:old db))))
-                (transition-login-fsm event))))
+ (fn-traced [{:keys [db]} [event _]]
+            {:db (-> db
+                     (assoc :user nil)
+                     (update :old-states
+                             (fn [old-states] (dissoc old-states (:old db))))
+                     (transition-login-fsm event))
+             :fx [[:dispatch [::navigate {:handler :login}]]]}))
 
 (re-frame/reg-event-db
  ::server-not-deauthenticated
@@ -573,14 +570,13 @@
                                           items-per-page))
                   route {:handler :forms-page
                          :route-params
-                         {:old (:slug (db/old db))
+                         {:old (db/old-slug db)
                           :items-per-page items-per-page
                           :page current-page}}]
               {:db (assoc db
                           :forms-paginator/items-per-page items-per-page
                           :forms-paginator/current-page current-page
-                          :forms-paginator/last-page last-page
-                          :forms/previous-route route)
+                          :forms-paginator/last-page last-page)
                :fx [[:dispatch [::navigate route]]]})))
 
 (re-frame/reg-event-db

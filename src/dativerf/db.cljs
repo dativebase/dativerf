@@ -35,3 +35,5 @@
 
 (defn old [{:keys [old olds]}]
   (->> olds (filter (fn [{:keys [url]}] (= old url))) first))
+
+(defn old-slug [db] (:slug (old db)))
