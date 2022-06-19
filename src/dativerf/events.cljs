@@ -13,6 +13,60 @@
    [re-frame.core :as re-frame]
    [re-pressed.core :as rp]))
 
+(def get-request
+  {:method :get
+   :format (ajax/json-request-format)
+   :response-format (ajax/json-response-format {:keywords? true})
+   :with-credentials true
+   :cookie-policy :standard})
+
+(defn default-form-view-state [{:keys [forms/expanded?]}]
+  {:expanded? expanded?})
+
+(defn reformat-forms-response
+  "Reformat a GET /forms response from an OLD:
+  - Make it all kebab-case.
+  - Make a forms map from form UUIDs to form maps with fetched-at timestamps.
+  - Create a forms-view-state map from form UUIDs to view state about each form.
+  - Create a representation of the paginator. It contains the (current) page,
+    the items per page, the count of forms in the OLD, the last logical page,
+    the indices of the first and last forms in the current page, and the UUIDs
+    of all forms in the current page.
+  - Return a map containing the forms, the forms view state and the paginator
+    implied by the response."
+  [response db]
+  (let [{:keys [items paginator]} (utils/->kebab-case-recursive response)
+        {:keys [page items-per-page count]} paginator
+        current-page page
+        last-page (Math/ceil (/ count items-per-page))
+        first-form (- (* current-page items-per-page)
+                      (dec items-per-page))
+        last-form (min count (+ first-form (dec items-per-page)))
+        fetched-at (.now js/Date)
+        forms (->> items
+                   (map (juxt :uuid
+                              (fn [form]
+                                (assoc form
+                                       :dative/fetched-at fetched-at))))
+                   (into {}))
+        default-form-view-state* (default-form-view-state db)
+        forms-view-state (->> forms
+                              keys
+                              (map (juxt
+                                    identity
+                                    (constantly
+                                     default-form-view-state*)))
+                              (into {}))]
+    {:forms forms
+     :forms-view-state forms-view-state
+     :paginator {:forms-paginator/items-per-page items-per-page
+                 :forms-paginator/current-page-forms (mapv :uuid items)
+                 :forms-paginator/current-page current-page
+                 :forms-paginator/last-page last-page
+                 :forms-paginator/count count
+                 :forms-paginator/first-form first-form
+                 :forms-paginator/last-form last-form}}))
+
 (re-frame/reg-event-db
  ::initialize-db
  (fn-traced [_ _]
@@ -20,7 +74,7 @@
 
 (re-frame/reg-event-fx
  ::navigate
- (fn-traced [_ [_ handler]] {:navigate handler}))
+ (fn-traced [_ [_ route]] {:navigate route}))
 
 (def app-dative-servers-url "https://app.dative.ca/servers.json")
 
@@ -53,13 +107,13 @@
             (assoc db :settings/active-tab active-settings-tab)))
 
 (re-frame/reg-event-fx
- ::set-active-tab
- (fn-traced [{:keys [db]} [_ active-tab]]
-   {:db (assoc db :active-tab active-tab)
-    ;; WARNING: dispatching the following here means that each tab-change resets
-    ;; the keyboard shortcuts vacuously. This may seem wasteful, but I suspect
-    ;; we will want tab-specific shortcuts so I am leaving it here as-is on
-    ;; purpose.
+ ::set-active-route
+ (fn-traced [{:keys [db]} [_ active-route]]
+   {:db (assoc db :active-route active-route)
+    ;; WARNING: dispatching the following here means that each route change
+    ;; resets the keyboard shortcuts vacuously. This may seem wasteful, but I
+    ;; suspect we will want view-specific shortcuts so I am leaving it here as-is
+    ;; on purpose.
     :dispatch [::rp/set-keydown-rules
                {:event-keys [[[:shortcut/home]
                               [{:keyCode 72
@@ -109,33 +163,48 @@
 
 (re-frame/reg-event-fx
  :shortcut/home
- (fn-traced [_ _] {:fx [[:dispatch [::navigate :home]]]}))
+ (fn-traced [_ _] {:fx [[:dispatch [::navigate {:handler :home}]]]}))
 
 (re-frame/reg-event-fx
  :shortcut/login
- (fn-traced [{:keys [db]} _] {:fx [[:dispatch [::navigate (if (:user db)
-                                                            :logout
-                                                            :login)]]]}))
+ (fn-traced [{:keys [db]} _]
+            {:fx [[:dispatch
+                   (if (:user db)
+                     [::navigate
+                      {:handler :logout
+                       :route-params {:old (:slug (db/old db))}}]
+                     [::navigate {:handler :login}])]]}))
 
 (re-frame/reg-event-fx
  :shortcut/forms
- (fn-traced [{{:keys [user]} :db} _]
-            (when user {:fx [[:dispatch [::navigate :forms]]]})))
+ (fn-traced [{{:keys [user] :as db} :db} _]
+            (when user {:fx [[:dispatch
+                              [::navigate
+                               (or (:forms/previous-route db)
+                                   {:handler :forms-last-page
+                                    :route-params {:old (:slug (db/old db))}})]]]})))
 
 (re-frame/reg-event-fx
  :shortcut/files
- (fn-traced [{{:keys [user]} :db} _]
-            (when user {:fx [[:dispatch [::navigate :files]]]})))
+ (fn-traced [{{:keys [user] :as db} :db} _]
+            (when user {:fx [[:dispatch
+                              [::navigate
+                               {:handler :files
+                                :route-params {:old (:slug (db/old db))}}]]]})))
 
 (re-frame/reg-event-fx
  :shortcut/collections
- (fn-traced [{{:keys [user]} :db} _]
-            (when user {:fx [[:dispatch [::navigate :collections]]]})))
+ (fn-traced [{{:keys [user] :as db} :db} _]
+            (when user {:fx [[:dispatch
+                              [::navigate
+                               {:handler :collections
+                                :route-params {:old (:slug (db/old db))}}]]]})))
 
 (re-frame/reg-event-fx
  :shortcut/application-settings
  (fn-traced [{{:keys [user]} :db} _]
-            (when user {:fx [[:dispatch [::navigate :application-settings]]]})))
+            (when user {:fx [[:dispatch [::navigate
+                                         {:handler :application-settings}]]]})))
 
 ;; Login Page/Form Events
 
@@ -233,51 +302,77 @@
               :on-failure [::server-not-deauthenticated]}}))
 
 (re-frame/reg-event-fx
+ ::fetch-forms-page
+ (fn-traced [{:keys [db]} [_ page items-per-page]]
+            (let [route {:handler :forms-page
+                         :route-params
+                         {:old (:slug (db/old db))
+                          :items-per-page items-per-page
+                          :page page}}]
+              {:db (assoc db :forms/previous-route route)
+               :http-xhrio
+               (assoc get-request
+                      :uri (-> db db/old old/forms)
+                      :params {:page page
+                               :items_per_page items-per-page}
+                      :on-success [::forms-page-fetched]
+                      :on-failure [::forms-page-not-fetched
+                                   page items-per-page])})))
+
+;; Context:
+;; To get the last page of an OLD's forms set, it is necessary to first make a
+;; request for the first page. This gives us the count of forms and lets us use
+;; the pagination parameters in the OLD's REST API do determine the correct
+;; request for the final page of forms.
+(re-frame/reg-event-fx
+ ::fetch-forms-last-page
+ (fn-traced [{:keys [db]} _]
+            (let [page 1
+                  items-per-page (:forms-paginator/items-per-page db)]
+              {:http-xhrio
+               (assoc get-request
+                      :uri (-> db db/old old/forms)
+                      :params {:page page
+                               :items_per_page items-per-page}
+                      :on-success [::forms-first-page-for-last-page-fetched]
+                      :on-failure [::forms-page-not-fetched
+                                   page items-per-page])})))
+
+(re-frame/reg-event-fx
+ ::forms-first-page-for-last-page-fetched
+ (fn [{:keys [db]} [_ response]]
+   (let [{:keys [forms forms-view-state paginator]}
+         (reformat-forms-response response db)
+         last-page (:forms-paginator/last-page paginator)
+         items-per-page (:forms-paginator/items-per-page paginator)
+         route {:handler :forms-page
+                :route-params
+                {:old (:slug (db/old db))
+                 :items-per-page items-per-page
+                 :page last-page}}]
+     (let [fx {:db (-> db
+                       (update-in [:old-states (:old db) :forms] merge forms)
+                       (update-in [:old-states (:old db) :forms/view-state]
+                                  merge forms-view-state)
+                       (merge paginator)
+                       (assoc :forms/previous-route route))}]
+       (if (= 1 last-page)
+         fx
+         (assoc fx :fx [[:dispatch [::navigate route]]]))))))
+
+(re-frame/reg-event-fx
  ::server-authenticated
  (fn-traced [{:keys [db]} [event {:keys [authenticated user]}]]
             (if authenticated
-              (let [old (db/old db)]
-                {:db (-> db
-                         (fsms/update-state login/state-machine :login/state event)
-                         (assoc :user (utils/->kebab-case-recursive user)
-                                :login/username ""
-                                :login/password ""
-                                :active-tab :forms))
-                 :http-xhrio
-                 [{:method :get
-                   :uri (old/applicationsettings old)
-                   :format (ajax/json-request-format)
-                   :response-format (ajax/json-response-format {:keywords? true})
-                   :with-credentials true
-                   :cookie-policy :standard
-                   :on-success [::applicationsettings-fetched]
-                   :on-failure [::applicationsettings-not-fetched]}
-                  {:method :get
-                   :uri (old/forms-new old)
-                   :format (ajax/json-request-format)
-                   :response-format (ajax/json-response-format {:keywords? true})
-                   :with-credentials true
-                   :cookie-policy :standard
-                   :on-success [::forms-new-fetched]
-                   :on-failure [::forms-new-not-fetched]}
-                  {:method :get
-                   :uri (old/formsearches-new old)
-                   :format (ajax/json-request-format)
-                   :response-format (ajax/json-response-format {:keywords? true})
-                   :with-credentials true
-                   :cookie-policy :standard
-                   :on-success [::formsearches-new-fetched]
-                   :on-failure [::formsearches-new-not-fetched]}
-                  {:method :get
-                   :uri (old/forms old)
-                   :params {:page 1
-                            :items_per_page (:forms-paginator/items-per-page db)}
-                   :format (ajax/json-request-format)
-                   :response-format (ajax/json-response-format {:keywords? true})
-                   :with-credentials true
-                   :cookie-policy :standard
-                   :on-success [::forms-first-page-fetched-initial]
-                   :on-failure [::forms-first-page-not-fetched-initial]}]})
+              {:db (-> db
+                       (fsms/update-state login/state-machine :login/state event)
+                       (assoc :user (utils/->kebab-case-recursive user)
+                              :login/username ""
+                              :login/password ""))
+               :fx [[:dispatch [::navigate
+                                {:handler :forms-last-page
+                                 :route-params
+                                 {:old (:slug (db/old db))}}]]]}
               {:db (-> db
                        (fsms/update-state login/state-machine :login/state
                                           ::server-not-authenticated)
@@ -329,88 +424,15 @@
             (println "WARNING: failed to fetch formsearches/new for this OLD")
             db))
 
-(defn default-form-view-state [{:keys [forms/expanded?]}]
-  {:expanded? expanded?})
-
-(defn reformat-forms-response [response db]
-  (let [{:keys [items paginator]} (utils/->kebab-case-recursive response)
-        {:keys [page items-per-page count]} paginator
-        current-page page
-        last-page (Math/ceil (/ count items-per-page))
-        first-form (- (* current-page items-per-page)
-                      (dec items-per-page))
-        last-form (min count (+ first-form (dec items-per-page)))
-        fetched-at (.now js/Date)
-        forms (->> items
-                   (map (juxt :uuid
-                              (fn [form]
-                                (assoc form
-                                       :dative/fetched-at fetched-at))))
-                   (into {}))
-        default-form-view-state* (default-form-view-state db)
-        forms-view-state (->> forms
-                              keys
-                              (map (juxt
-                                    identity
-                                    (constantly
-                                     default-form-view-state*)))
-                              (into {}))]
-    {:forms forms
-     :forms-view-state forms-view-state
-     :paginator {:forms-paginator/items-per-page items-per-page
-                 :forms-paginator/current-page-forms (mapv :uuid items)
-                 :forms-paginator/current-page current-page
-                 :forms-paginator/last-page last-page
-                 :forms-paginator/count count
-                 :forms-paginator/first-form first-form
-                 :forms-paginator/last-form last-form}}))
-
-(re-frame/reg-event-fx
- ::forms-first-page-fetched-initial
- (fn [{:keys [db]} [_event response]]
-            (let [{:keys [forms forms-view-state paginator]}
-                  (reformat-forms-response response db)]
-              {:db (-> db
-                       (update-in [:old-states (:old db) :forms] merge forms)
-                       (update-in [:old-states (:old db) :forms/view-state]
-                                  merge forms-view-state)
-                       (merge paginator))
-               :http-xhrio {:method :get
-                            :uri (old/forms (db/old db))
-                            :params {:page (:forms-paginator/last-page paginator)
-                                     :items_per_page
-                                     (:forms-paginator/items-per-page paginator)}
-                            :format (ajax/json-request-format)
-                            :response-format (ajax/json-response-format
-                                              {:keywords? true})
-                            :with-credentials true
-                            :cookie-policy :standard
-                            :on-success [::forms-last-page-fetched]
-                            :on-failure [::forms-last-page-not-fetched]}})))
-
 (re-frame/reg-event-db
- ::forms-first-page-not-fetched-initial
- (fn-traced [db [_event _]]
+ ::forms-page-not-fetched
+ (fn-traced [db [_ page items-per-page]]
             ;; TODO handle this failure better. Probably logout and alert the user.
-            (println "WARNING: failed to fetch forms page 1 for this OLD")
-            db))
-
-(re-frame/reg-event-db
- ::forms-last-page-fetched
- (fn-traced [db [_event response]]
-            (let [{:keys [forms forms-view-state paginator]}
-                  (reformat-forms-response response db)]
-              (-> db
-                  (update-in [:old-states (:old db) :forms] merge forms)
-                  (update-in [:old-states (:old db) :forms/view-state]
-                             merge forms-view-state)
-                  (merge paginator)))))
-
-(re-frame/reg-event-db
- ::forms-last-page-not-fetched
- (fn-traced [db [_event _]]
-            ;; TODO handle this failure better. Probably logout and alert the user.
-            (println "WARNING: failed to fetch forms page N for this OLD")
+            (println
+             "WARNING: failed to fetch forms page"
+             page
+             "with %s items per page"
+             items-per-page)
             db))
 
 (re-frame/reg-event-db
@@ -426,7 +448,7 @@
  (fn-traced [db [event _]]
             (-> db
                 (assoc :user nil
-                       :active-tab :login)
+                       :active-route {:handler :login})
                 (update :old-states
                         (fn [old-states] (dissoc old-states (:old db))))
                 (transition-login-fsm event))))
@@ -437,84 +459,17 @@
             (println "WARNING: Failed to logout of OLD.")
             (-> db
                 (assoc :user nil
-                       :active-tab :login)
+                       :active-route {:handler :login})
                 (update :old-states
                         (fn [old-states] (dissoc old-states (:old db))))
                 (transition-login-fsm event))))
 
 ;; Forms Browse Navigation Events
 
-(defn get-request []
-  {:method :get
-   :format (ajax/json-request-format)
-   :response-format (ajax/json-response-format {:keywords? true})
-   :with-credentials true
-   :cookie-policy :standard})
-
 (defn get-forms-page-request []
-  (assoc (get-request)
+  (assoc get-request
          :on-success [::forms-page-fetched]
          :on-failure [::forms-page-not-fetched]))
-
-(re-frame/reg-event-fx
- ::user-clicked-forms-first-page
- (fn-traced [{:keys [db]} _]
-            {:db (assoc db :forms-paginator/current-page 1)
-             :http-xhrio
-             (merge (get-forms-page-request)
-                    {:uri (old/forms (db/old db))
-                     :params {:page 1
-                              :items_per_page
-                              (:forms-paginator/items-per-page db)}})}))
-
-(re-frame/reg-event-fx
- ::user-clicked-forms-next-page
- (fn-traced [{:keys [db]} _]
-            (let [current-page (:forms-paginator/current-page db)
-                  next-page (inc current-page)]
-              {:db (assoc db :forms-paginator/current-page next-page)
-               :http-xhrio
-               (merge (get-forms-page-request)
-                      {:uri (old/forms (db/old db))
-                       :params {:page next-page
-                                :items_per_page
-                                (:forms-paginator/items-per-page db)}})})))
-
-(re-frame/reg-event-fx
- ::user-clicked-forms-previous-page
- (fn-traced [{:keys [db]} _]
-            (let [current-page (:forms-paginator/current-page db)
-                  previous-page (dec current-page)]
-              {:db (assoc db :forms-paginator/current-page previous-page)
-               :http-xhrio
-               (merge (get-forms-page-request)
-                      {:uri (old/forms (db/old db))
-                       :params {:page previous-page
-                                :items_per_page
-                                (:forms-paginator/items-per-page db)}})})))
-
-(re-frame/reg-event-fx
- ::user-clicked-forms-last-page
- (fn-traced [{:keys [db]} _]
-            (let [last-page (:forms-paginator/last-page db)]
-              {:db (assoc db :forms-paginator/current-page last-page)
-               :http-xhrio
-               (merge (get-forms-page-request)
-                      {:uri (old/forms (db/old db))
-                       :params {:page last-page
-                                :items_per_page
-                                (:forms-paginator/items-per-page db)}})})))
-
-(re-frame/reg-event-fx
- ::user-clicked-go-to-page
- (fn-traced [{:keys [db]} [_ page-number]]
-            {:db (assoc db :forms-paginator/current-page page-number)
-             :http-xhrio
-             (merge (get-forms-page-request)
-                    {:uri (old/forms (db/old db))
-                     :params {:page page-number
-                              :items_per_page
-                              (:forms-paginator/items-per-page db)}})}))
 
 (def max-forms-in-memory 200)
 
@@ -558,29 +513,24 @@
  ::user-clicked-forms-labels-button
  (fn-traced [db _] (update db :forms/labels-on? not)))
 
-(re-frame/reg-event-db
- ::forms-page-not-fetched
- (fn-traced [db [_event _]]
-            ;; TODO handle this failure better. Probably logout and alert the user.
-            (println "WARNING: failed to fetch a page of forms")
-            db))
-
 (re-frame/reg-event-fx
  ::user-changed-items-per-page
  (fn [{:keys [db]} [_ items-per-page]]
             (let [first-form (:forms-paginator/first-form db)
                   current-page (Math/ceil (/ first-form items-per-page))
                   last-page (Math/ceil (/ (:forms-paginator/count db)
-                                          items-per-page))]
+                                          items-per-page))
+                  route {:handler :forms-page
+                         :route-params
+                         {:old (:slug (db/old db))
+                          :items-per-page items-per-page
+                          :page current-page}}]
               {:db (assoc db
                           :forms-paginator/items-per-page items-per-page
                           :forms-paginator/current-page current-page
-                          :forms-paginator/last-page last-page)
-               :http-xhrio
-               (merge (get-forms-page-request)
-                      {:uri (old/forms (db/old db))
-                       :params {:page current-page
-                                :items_per_page items-per-page}})})))
+                          :forms-paginator/last-page last-page
+                          :forms/previous-route route)
+               :fx [[:dispatch [::navigate route]]]})))
 
 (re-frame/reg-event-db
  ::user-clicked-form

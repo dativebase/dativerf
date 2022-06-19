@@ -1,12 +1,14 @@
 (ns dativerf.subs
   (:require
    [re-frame.core :as re-frame]
+   [dativerf.db :as db]
    [dativerf.fsms.login :as login]))
 
 (re-frame/reg-sub ::name (fn [db] (:name db)))
 (re-frame/reg-sub ::old (fn [db] (:old db)))
+(re-frame/reg-sub ::old-slug (fn [db] (-> db db/old :slug)))
 (re-frame/reg-sub ::olds (fn [db] (->> db :olds (sort-by :name))))
-(re-frame/reg-sub ::active-tab (fn [db _] (:active-tab db)))
+(re-frame/reg-sub ::active-route (fn [db _] (:active-route db)))
 (re-frame/reg-sub ::re-pressed-example (fn [db _] (:re-pressed-example db)))
 (re-frame/reg-sub ::user (fn [db] (:user db)))
 
@@ -76,6 +78,8 @@
 (re-frame/reg-sub ::forms-last-form
                   (fn [db _] (:forms-paginator/last-form db)))
 
+(re-frame/reg-sub ::forms-previous-route
+                  (fn [db _] (:forms/previous-route db)))
 (re-frame/reg-sub ::forms-labels-on?
                   (fn [db _] (:forms/labels-on? db)))
 

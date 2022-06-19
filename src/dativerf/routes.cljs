@@ -5,39 +5,42 @@
    [re-frame.core :as re-frame]
    [dativerf.events :as events]))
 
-(defmulti tabs identity)
+(def routes
+  (atom
+   ["/" {"" :home
+         "login" :login
+         [:old]
+         {"/collections" :collections
+          "/forms"
+          {"" :forms-last-page
+           "/page/"
+           {[:page]
+            {"/items-per-page/"
+             {[:items-per-page] :forms-page}}}
+           [:id] :form-id}
+          "/files" :files
+          "/logout" :logout
+          "/settings" :settings}
+         "application-settings" :application-settings}]))
+
+(defmulti tabs :handler)
+
 (defmethod tabs :default [route]
   [:div (str "No tab found for this route: " route)])
 
-(def routes
-  (atom
-    ["/" {"" :home
-          "login" :login
-          "logout" :logout
-          "forms" :forms
-          "files" :files
-          "collections" :collections
-          "application-settings" :application-settings}]))
-
-(defn parse
-  [url]
+(defn parse [url]
   (bidi/match-route @routes url))
 
-(defn url-for
-  [& args]
-  (apply bidi/path-for (into [@routes] args)))
+(defn serialize [{:keys [handler route-params]}]
+  (apply bidi/path-for (into [@routes handler] (flatten (seq route-params)))))
 
-(defn dispatch
-  [route]
-  (let [tab (keyword (str (name (:handler route))))]
-    (re-frame/dispatch [::events/set-active-tab tab])))
+(defn dispatch [route]
+  (re-frame/dispatch [::events/set-active-route route]))
 
-(defonce history
-  (pushy/pushy dispatch parse))
+(defonce history (pushy/pushy dispatch parse))
 
-(defn navigate!
-  [handler]
-  (pushy/set-token! history (url-for handler)))
+(defn navigate! [route]
+  (pushy/set-token! history (serialize route)))
 
 (defn start! []
   (pushy/start! history))

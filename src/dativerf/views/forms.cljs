@@ -10,6 +10,13 @@
 
 ;; Buttons
 
+(defn- forms-page-route []
+  {:handler :forms-page
+   :route-params
+   {:old @(re-frame/subscribe [::subs/old-slug])
+    :items-per-page @(re-frame/subscribe
+                      [::subs/forms-items-per-page])}})
+
 (defn first-page-button []
   (let [current-page @(re-frame/subscribe [::subs/forms-current-page])]
     [re-com/md-circle-icon-button
@@ -17,8 +24,11 @@
      :size :smaller
      :disabled? (= 1 current-page)
      :tooltip "first page"
-     :on-click (fn [_] (re-frame/dispatch
-                        [::events/user-clicked-forms-first-page]))]))
+     :on-click
+     (fn [_]
+       (re-frame/dispatch
+        [::events/navigate
+         (assoc-in (forms-page-route) [:route-params :page] 1)]))]))
 
 (defn previous-page-button []
   (let [current-page @(re-frame/subscribe [::subs/forms-current-page])]
@@ -27,8 +37,13 @@
      :size :smaller
      :disabled? (= 1 current-page)
      :tooltip "previous page"
-     :on-click (fn [_] (re-frame/dispatch
-                        [::events/user-clicked-forms-previous-page]))]))
+     :on-click
+     (fn [_]
+       (re-frame/dispatch
+        [::events/navigate
+         (assoc-in (forms-page-route)
+                   [:route-params :page]
+                   (dec current-page))]))]))
 
 (defn next-page-button []
   (let [current-page @(re-frame/subscribe [::subs/forms-current-page])
@@ -38,8 +53,13 @@
      :size :smaller
      :disabled? (= current-page last-page)
      :tooltip "next page"
-     :on-click (fn [_] (re-frame/dispatch
-                        [::events/user-clicked-forms-next-page]))]))
+     :on-click
+     (fn [_]
+       (re-frame/dispatch
+        [::events/navigate
+         (assoc-in (forms-page-route)
+                   [:route-params :page]
+                   (inc current-page))]))]))
 
 (defn last-page-button []
   (let [current-page @(re-frame/subscribe [::subs/forms-current-page])
@@ -49,8 +69,13 @@
      :size :smaller
      :disabled? (= current-page last-page)
      :tooltip "last page"
-     :on-click (fn [_] (re-frame/dispatch
-                        [::events/user-clicked-forms-last-page]))]))
+     :on-click
+     (fn [_]
+       (re-frame/dispatch
+        [::events/navigate
+         (assoc-in (forms-page-route)
+                   [:route-params :page]
+                   last-page)]))]))
 
 (defn new-form-button []
   [re-com/md-circle-icon-button
@@ -141,9 +166,16 @@
       [re-com/button
        :label (utils/commatize page-number)
        :disabled? disabled?
-       :tooltip (str "go to page " (utils/commatize page-number))
-       :on-click (fn [_] (re-frame/dispatch
-                          [::events/user-clicked-go-to-page page-number]))])))
+       :tooltip (if disabled?
+                  (str "on page " (utils/commatize page-number))
+                  (str "go to page " (utils/commatize page-number)))
+       :on-click
+       (fn [_]
+         (re-frame/dispatch
+          [::events/navigate
+           (assoc-in (forms-page-route)
+                     [:route-params :page]
+                     page-number)]))])))
 
 (defn browsing-text []
   [re-com/v-box
@@ -285,4 +317,32 @@
    [[browse-navigation]
     [forms-enumeration]]])
 
-(defmethod routes/tabs :forms [] [forms-tab])
+(defmethod routes/tabs :forms-page
+  [{{:keys [page items-per-page]} :route-params}]
+  (let [current-page @(re-frame/subscribe [::subs/forms-current-page])
+        page (js/parseInt page)
+        form-ids @(re-frame/subscribe [::subs/forms-current-page-forms])
+        forms (filter some?
+                      (for [form-id form-ids]
+                        @(re-frame/subscribe [::subs/form-by-id form-id])))]
+    (if (and (= page current-page)
+             (= (count form-ids) (count forms)))
+      [forms-tab]
+      (do (re-frame/dispatch [::events/fetch-forms-page page items-per-page])
+          [re-com/throbber :size :large]))))
+
+(defmethod routes/tabs :forms-last-page [_]
+  (let [last-page @(re-frame/subscribe [::subs/forms-last-page])
+        current-page @(re-frame/subscribe [::subs/forms-current-page])
+        form-ids @(re-frame/subscribe [::subs/forms-current-page-forms])
+        forms (filter some?
+                      (for [form-id form-ids]
+                        @(re-frame/subscribe [::subs/form-by-id form-id])))]
+    (if (and last-page
+             (= last-page current-page)
+             (= (count form-ids) (count forms)))
+      (re-frame/dispatch
+       [::events/navigate
+        (assoc-in (forms-page-route) [:route-params :page] last-page)])
+      (do (re-frame/dispatch [::events/fetch-forms-last-page])
+          [re-com/throbber :size :large]))))

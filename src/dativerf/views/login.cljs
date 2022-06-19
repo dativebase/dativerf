@@ -61,7 +61,7 @@
       :placeholder "username"
       :model @(re-frame/subscribe [:login/username])
       :disabled? @(re-frame/subscribe [:login/inputs-disabled?])
-      :on-change (fn [username] (re-frame/dispatch
+      :on-change (fn [username] (re-frame/dispatch-sync
                                  [::events/user-changed-username
                                   username]))]]))
 
@@ -81,7 +81,7 @@
       :change-on-blur? false
       :model @(re-frame/subscribe [:login/password])
       :disabled? @(re-frame/subscribe [:login/inputs-disabled?])
-      :on-change (fn [password] (re-frame/dispatch
+      :on-change (fn [password] (re-frame/dispatch-sync
                                  [::events/user-changed-password
                                   password]))]]))
 
