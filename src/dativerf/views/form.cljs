@@ -202,6 +202,23 @@
        :max-width form-value-width
        :child (str value)]]]))
 
+(defn id-string
+  [id]
+  [re-com/h-box
+   :src (at)
+   :children
+   [[igt-label (or (-> :id attrs :label) "")]
+    [re-com/box
+     :max-width form-value-width
+     :child
+     [re-com/hyperlink
+      :label (str id)
+      :on-click (fn [& x]
+                  ;; TODO
+                  (println x)
+                  (println "visit this form"))
+      :tooltip "view this form"]]]])
+
 (defn tags-as-string [tags]
   (when (seq tags)
     [re-com/h-box
@@ -333,7 +350,7 @@
     [secondary-scalar :semantics semantics]
     [secondary-scalar :syntax syntax]
     [secondary-scalar :uuid uuid]
-    [secondary-scalar :id id]]])
+    [id-string id]]])
 
 (defn igt-form [form-id]
   (let [form (form-specs/parse-form @(re-frame/subscribe

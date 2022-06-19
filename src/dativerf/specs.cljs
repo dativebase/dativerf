@@ -9,4 +9,3 @@
 (s/def ::old (s/keys :req-un [:old/name
                               :old/url]))
 (s/def ::olds (s/coll-of ::old))
-

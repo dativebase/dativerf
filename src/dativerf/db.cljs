@@ -8,7 +8,7 @@
 
 (def default-db
   {:name "Dative"
-   :active-tab :home
+   :active-route {:handler :home}
    :olds []
    :old nil
    :old-states {}
@@ -24,12 +24,14 @@
    :forms-paginator/items-per-page 10
    :forms-paginator/current-page-forms []
    :forms-paginator/current-page 1
-   :forms-paginator/last-page 1
+   :forms-paginator/last-page nil
    :forms-paginator/count 0
    :forms-paginator/first-form 0
    :forms-paginator/last-form 0
    :forms/labels-on? false
-   :forms/expanded? false})
+   :forms/expanded? false
+   ;; routing state
+   :forms/previous-route nil})
 
 (defn old [{:keys [old olds]}]
   (->> olds (filter (fn [{:keys [url]}] (= old url))) first))
