@@ -4,8 +4,7 @@
   To create a new export, add a new map to the exports vec with :id, :label and
   :efn keys. The value of :efn should be an export function. It takes a form and
   returns a string."
-  (:require [camel-snake-kebab.core :as csk]
-            [dativerf.utils :as utils]
+  (:require [dativerf.utils :as utils]
             [clojure.string :as str]))
 
 ;; Plain text export
@@ -35,14 +34,14 @@
 
 ;; JSON export
 
+(defn prepare-form-for-jsonification [form]
+  (-> form
+      (dissoc :dative/fetched-at)
+      (update :uuid str)
+      utils/->snake-case-recursive))
+
 (defn json-export [form]
-  (.stringify js/JSON (clj->js
-                       (-> form
-                           (dissoc :dative/fetched-at)
-                           (update :uuid str)
-                           utils/->snake-case-recursive))
-              nil
-              2))
+  (-> form prepare-form-for-jsonification utils/->pretty-json))
 
 ;; API
 

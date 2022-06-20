@@ -24,6 +24,13 @@ Ready
 Backlog
 --------------------------------------------------------------------------------
 
+- Ensure correct round-tripping between OLD REST JSON-encoded schema (for forms,
+  at least) and Dative-internal canonical Clojure form spec.
+
+  - This would be a lot easier if the backend were implemented in Clojure and we
+    could reuse specs. It would be unnecessary if the OLD exposed an (parallel)
+    EDN (or Transit, etc.) API.
+
 - Improvements to exports.
 
   - Consider adding an optional :description key to the export maps. This

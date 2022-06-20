@@ -25,6 +25,8 @@
 (def ->snake-case-recursive
   (partial modify-form-keywords-recursive csk/->snake_case_keyword))
 
+(defn ->pretty-json [x] (.stringify js/JSON (clj->js x) nil 2))
+
 (def handler->tab
   {:forms-last-page :forms
    :form-page :forms

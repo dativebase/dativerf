@@ -6,7 +6,9 @@
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
-            [dativerf.views.form :as form]))
+            [dativerf.views.form :as form]
+            [dativerf.views.forms.exports :as exports]
+            [dativerf.views.widgets :as widgets]))
 
 ;; Buttons
 
@@ -111,8 +113,11 @@
   [re-com/md-circle-icon-button
    :md-icon-name "zmdi-download"
    :size :smaller
-   :tooltip "export"
-   :disabled? true])
+   :tooltip (if @(re-frame/subscribe [::subs/forms-export-interface-visible?])
+              "hide export interface"
+              "show export interface")
+   :on-click (fn [_] (re-frame/dispatch
+                      [::events/user-clicked-export-forms-button]))])
 
 (defn import-button []
   [re-com/md-circle-icon-button
@@ -316,6 +321,40 @@
                                 form-ids)]
        ^{:key form-id} [enumerated-form index form-id])]))
 
+(defn forms-export-select []
+  [re-com/single-dropdown
+   :src (at)
+   :width "250px"
+   :choices exports/exports
+   :model @(re-frame/subscribe [::subs/forms-export-format])
+   :tooltip "choose an export format"
+   :on-change
+   (fn [export-id]
+     (re-frame/dispatch
+      [::events/user-selected-forms-export export-id]))])
+
+(defn forms-export [export-string]
+  [re-com/box
+   :class (styles/export)
+   :child [:pre {:style {:margin-bottom "0px"}} export-string]])
+
+(defn export-forms-interface []
+  (when @(re-frame/subscribe [::subs/forms-export-interface-visible?])
+    (let [export-fn (:efn (exports/export @(re-frame/subscribe
+                                            [::subs/forms-export-format])))
+          forms @(re-frame/subscribe
+                  [::subs/forms-by-ids
+                   @(re-frame/subscribe [::subs/forms-current-page-forms])])
+          export-string (export-fn (vals forms))]
+      [re-com/v-box
+       :class (styles/export-interface)
+       :children
+       [[re-com/h-box
+         :gap "10px"
+         :children [[forms-export-select]
+                    [widgets/copy-button export-string "forms export"]]]
+        [forms-export export-string]]])))
+
 (defn- forms-tab []
   [re-com/v-box
    :src (at)
@@ -323,6 +362,7 @@
    :padding "1em"
    :children
    [[browse-navigation]
+    [export-forms-interface]
     [forms-enumeration]]])
 
 (defn- form-navigation []

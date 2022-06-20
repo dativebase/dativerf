@@ -598,6 +598,11 @@
              [:old-states (:old db) :forms/view-state form-id :export-format]
              export-id)))
 
+(re-frame/reg-event-db
+ ::user-selected-forms-export
+ (fn-traced [db [_ export-id]]
+            (assoc db :forms/export-format export-id)))
+
 (defn- set-forms-expanded [forms-view-state expanded?]
   (->> forms-view-state
        (map (juxt key
@@ -615,6 +620,11 @@
                 (update-in
                  [:old-states (:old db) :forms/view-state]
                  set-forms-expanded false))))
+
+(re-frame/reg-event-db
+ ::user-clicked-export-forms-button
+ (fn-traced [db _]
+            (update db :forms/export-interface-visible? not)))
 
 (re-frame/reg-event-db
  ::user-clicked-expand-all-forms-button
