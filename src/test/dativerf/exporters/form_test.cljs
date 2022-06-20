@@ -1,6 +1,6 @@
-(ns test.dativerf.views.form.exports-test
+(ns test.dativerf.exporters.form-test
   (:require [cljs.test :as t :include-macros true]
-            [dativerf.views.form.exports :as sut]))
+            [dativerf.exporters.form :as sut]))
 
 (t/deftest leipzig-igt-export-works
   (doseq [[form expected]

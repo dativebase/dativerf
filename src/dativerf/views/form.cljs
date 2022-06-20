@@ -4,7 +4,7 @@
             [dativerf.events :as events]
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
-            [dativerf.views.form.exports :as exports]
+            [dativerf.exporters.form :as form-exporter]
             [dativerf.views.widgets :as widgets]
             [re-frame.core :as re-frame]
             [re-com.core :as re-com :refer [at]]))
@@ -34,7 +34,7 @@
   [re-com/single-dropdown
    :src (at)
    :width "250px"
-   :choices exports/exports
+   :choices form-exporter/exports
    :model @(re-frame/subscribe [::subs/form-export-format form-id])
    :tooltip "choose an export format"
    :on-change
@@ -362,7 +362,7 @@
 (defn igt-form-export-interface [{:as form form-id :uuid}]
   (when @(re-frame/subscribe [::subs/form-export-interface-visible? form-id])
     (let [{:as e :keys [efn]}
-          (exports/export @(re-frame/subscribe [::subs/form-export-format
+          (form-exporter/export @(re-frame/subscribe [::subs/form-export-format
                                                 form-id]))
           export-string (efn form)]
       [re-com/v-box
