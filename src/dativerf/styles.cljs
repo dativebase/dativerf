@@ -35,12 +35,35 @@
   {:font-family "'GentiumPlus', serif"
    :font-size "14pt"})
 
+(declare default)
+(defclass default []
+  {:font-family "Segoe UI, Roboto, sans-serif"
+   :font-size "14px"})
+
 (declare form)
 (defclass form []
   {:font-family "'GentiumPlus', serif"
    :font-size "14pt"
-   :width "660px"
-   :cursor "pointer"})
+   :width "660px"})
+
+(declare export-interface)
+(defclass export-interface []
+  {:padding "1em"
+   :margin "1em 0"
+   :border "1px solid #ddd"
+   :border-radius "5px"})
+
+(declare export)
+(defclass export []
+  {:font-family "'GentiumPlus', serif"
+   :margin-top "1em"
+   :margin-bottom "0"
+   :max-height "400px"
+   :font-size "14pt"})
+
+(declare actionable)
+(defclass actionable []
+  {:cursor "pointer"})
 
 (declare widget)
 (defclass widget []

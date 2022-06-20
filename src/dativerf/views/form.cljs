@@ -1,21 +1,45 @@
 (ns dativerf.views.form
-  (:require [re-frame.core :as re-frame]
-            [re-com.core :as re-com :refer [at]]
-            [cljs-time.format :as timef]
+  (:require [cljs-time.format :as timef]
+            [clojure.string :as str]
             [dativerf.events :as events]
-            [dativerf.specs.form :as form-specs]
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
-            [clojure.string :as str]))
+            [dativerf.views.form.exports :as exports]
+            [re-frame.core :as re-frame]
+            [re-com.core :as re-com :refer [at]]))
 
 ;; Buttons
 
-(defn x-button []
+(defn export-button [{form-id :uuid}]
   [re-com/md-circle-icon-button
-   :md-icon-name "zmdi-plus"
+   :md-icon-name "zmdi-download"
    :size :smaller
-   :tooltip "x"
-   :disabled? true])
+   :tooltip (if @(re-frame/subscribe [::subs/form-export-interface-visible? form-id])
+              "hide export interface"
+              "show export interface")
+   :on-click (fn [_]
+               (re-frame/dispatch
+                [::events/user-clicked-export-form-button form-id]))])
+
+(defn collapse-button [{:keys [uuid]}]
+  [re-com/md-circle-icon-button
+   :md-icon-name "zmdi-chevron-up"
+   :size :smaller
+   :tooltip "collapse this form"
+   :on-click (fn [_] (re-frame/dispatch
+                      [::events/user-clicked-form uuid]))])
+
+(defn form-export-select [form-id]
+  [re-com/single-dropdown
+   :src (at)
+   :width "250px"
+   :choices exports/exports
+   :model @(re-frame/subscribe [::subs/form-export-format form-id])
+   :tooltip "choose an export format"
+   :on-change
+   (fn [export-id]
+     (re-frame/dispatch
+      [::events/user-selected-form-export form-id export-id]))])
 
 ;; End Buttons
 
@@ -213,7 +237,7 @@
      :child
      [re-com/hyperlink
       :label (str id)
-      :on-click (fn [& x]
+      :on-click (fn [& _]
                   (re-frame/dispatch
                    [::events/navigate
                     {:handler :form-page
@@ -320,51 +344,109 @@
         (->> date-str reverse (drop 11) reverse (apply str))
         date-str))))
 
+(defn igt-form-buttons [{:as form form-id :uuid}]
+  [re-com/h-box
+   :src (at)
+   :class (styles/default)
+   :gap "5px"
+   :children
+   [[collapse-button form]
+    [export-button form]]])
+
+;; From https://gist.github.com/rotaliator/73daca2dc93c586122a0da57189ece13
+(defn- copy-to-clipboard [val]
+  (let [el (js/document.createElement "textarea")]
+    (set! (.-value el) val)
+    (.appendChild js/document.body el)
+    (.select el)
+    (js/document.execCommand "copy")
+    (.removeChild js/document.body el)))
+
+(defn copy-button [export-string]
+  [re-com/md-circle-icon-button
+   :md-icon-name "zmdi-copy"
+   :size :smaller
+   :tooltip "copy export to clipboard"
+   :on-click (fn [e]
+               (.stopPropagation e)
+               (copy-to-clipboard export-string))])
+
+(defn form-export [export-string]
+  [re-com/box
+   :class (styles/export)
+   :child [:pre {:style {:margin-bottom "0px"}} export-string]])
+
+(defn igt-form-export-interface [{:as form form-id :uuid}]
+  (when @(re-frame/subscribe [::subs/form-export-interface-visible? form-id])
+    (let [{:as e :keys [efn]}
+          (exports/export @(re-frame/subscribe [::subs/form-export-format
+                                                form-id]))
+          export-string (efn form)]
+      [re-com/v-box
+       :class (styles/export-interface)
+       :children
+       [[re-com/h-box
+         :gap "10px"
+         :children [[form-export-select form-id]
+                    [copy-button export-string]]]
+        [form-export export-string]]])))
+
+(defn igt-form-controls [{:as form form-id :uuid}]
+  (when @(re-frame/subscribe [::subs/form-expanded? form-id])
+    [re-com/v-box
+     :class (styles/default)
+     :children
+     [[igt-form-buttons form]
+      [igt-form-export-interface form]]]))
+
 (defn igt-form-secondary
   [{:keys [break-gloss-category comments datetime-entered datetime-modified
            date-elicited elicitation-method elicitor enterer files id modifier
            speaker-comments semantics source speaker status syntactic-category
            syntactic-category-string syntax tags uuid verifier]}]
-  [re-com/v-box
-   :src (at)
-   :children
-   [[secondary-scalar :syntactic-category-string syntactic-category-string]
-    [secondary-scalar :break-gloss-category break-gloss-category]
-    [secondary-scalar :comments comments]
-    [secondary-scalar :speaker-comments speaker-comments]
-    [tags-as-string tags]
-    [syntactic-category-as-string syntactic-category]
-    [elicitation-method-as-string elicitation-method]
-    [secondary-scalar :date-elicited (date->human-string date-elicited)]
-    [person-as-string :speaker speaker]
-    [person-as-string :elicitor elicitor]
-    [person-as-string :verifier verifier]
-    [person-as-string :enterer enterer]
-    [secondary-scalar
-     :datetime-entered
-     (when datetime-entered
-       (datetime->human-string datetime-entered))]
-    [person-as-string :modifier modifier]
-    [secondary-scalar :datetime-modified (datetime->human-string
-                                          datetime-modified)]
-    [files-as-string files]
-    [source-as-string source]
-    [secondary-scalar :status status]
-    [secondary-scalar :semantics semantics]
-    [secondary-scalar :syntax syntax]
-    [secondary-scalar :uuid uuid]
-    [id-string id]]])
-
-(defn igt-form [form-id]
-  (let [form (form-specs/parse-form @(re-frame/subscribe
-                                      [::subs/form-by-id form-id]))
-        form-expanded? @(re-frame/subscribe [::subs/form-expanded? form-id])]
+  (when @(re-frame/subscribe [::subs/form-expanded? uuid])
     [re-com/v-box
      :src (at)
-     :class (styles/form)
-     :attr {:on-click (fn [& _] (re-frame/dispatch [::events/user-clicked-form
-                                                    form-id]))}
-     :gap "1em"
      :children
-     [[igt-form-igt form]
-      (when form-expanded? [igt-form-secondary form])]]))
+     [[secondary-scalar :syntactic-category-string syntactic-category-string]
+      [secondary-scalar :break-gloss-category break-gloss-category]
+      [secondary-scalar :comments comments]
+      [secondary-scalar :speaker-comments speaker-comments]
+      [tags-as-string tags]
+      [syntactic-category-as-string syntactic-category]
+      [elicitation-method-as-string elicitation-method]
+      [secondary-scalar :date-elicited (date->human-string date-elicited)]
+      [person-as-string :speaker speaker]
+      [person-as-string :elicitor elicitor]
+      [person-as-string :verifier verifier]
+      [person-as-string :enterer enterer]
+      [secondary-scalar
+       :datetime-entered
+       (when datetime-entered
+         (datetime->human-string datetime-entered))]
+      [person-as-string :modifier modifier]
+      [secondary-scalar :datetime-modified (datetime->human-string
+                                            datetime-modified)]
+      [files-as-string files]
+      [source-as-string source]
+      [secondary-scalar :status status]
+      [secondary-scalar :semantics semantics]
+      [secondary-scalar :syntax syntax]
+      [secondary-scalar :uuid uuid]
+      [id-string id]]]))
+
+(defn igt-form [form-id]
+  (let [form @(re-frame/subscribe [::subs/form-by-id form-id])
+        expanded? @(re-frame/subscribe [::subs/form-expanded? form-id])]
+    [re-com/v-box
+     :src (at)
+     :class (if expanded?
+              (styles/form)
+              (str (styles/form) " " (styles/actionable)))
+     :attr {:on-click
+            (fn [& _] (when-not expanded?
+                        (re-frame/dispatch [::events/user-clicked-form form-id])))}
+     :children
+     [[igt-form-controls form]
+      [igt-form-igt form]
+      [igt-form-secondary form]]]))

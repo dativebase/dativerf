@@ -9,15 +9,21 @@
 
 (defn kebab->space [s] (str/replace s #"-" " "))
 
-(defn ->kebab-case-recursive [d]
+(defn modify-form-keywords-recursive [modifier d]
   (walk/postwalk
    (fn [x] (if (keyword? x)
-           (if-let [ns (namespace x)]
-             (keyword (csk/->kebab-case ns)
-                      (csk/->kebab-case (name x)))
-             (csk/->kebab-case x))
-           x))
+             (if-let [ns (namespace x)]
+               (keyword (modifier ns)
+                        (modifier (name x)))
+               (modifier x))
+             x))
    d))
+
+(def ->kebab-case-recursive
+  (partial modify-form-keywords-recursive csk/->kebab-case))
+
+(def ->snake-case-recursive
+  (partial modify-form-keywords-recursive csk/->snake_case_keyword))
 
 (def handler->tab
   {:forms-last-page :forms

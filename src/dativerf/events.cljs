@@ -7,6 +7,7 @@
    [dativerf.fsms.login :as login]
    [dativerf.models.old :as models-old]
    [dativerf.old :as old]
+   [dativerf.specs.form :as form-specs]
    [dativerf.utils :as utils]
    [day8.re-frame.tracing :refer-macros [fn-traced defn-traced]]
    [reagent.core :as reagent]
@@ -23,12 +24,16 @@
    :cookie-policy :standard})
 
 (defn default-form-view-state [{:keys [forms/expanded?]}]
-  {:expanded? expanded?})
+  {:expanded? expanded?
+   :export-interface-visible? false
+   :export-format :plain-text})
 
 (defn- forms->uuid-keyed-forms-map [forms fetched-at]
   (->> forms
-       (map (juxt :uuid
-                  (fn [form] (assoc form :dative/fetched-at fetched-at))))
+       (map (comp
+             #(assoc % :dative/fetched-at fetched-at)
+             form-specs/parse-form))
+       (map (juxt :uuid identity))
        (into {})))
 
 (defn- forms->view-states [forms db]
@@ -65,7 +70,7 @@
     {:forms forms
      :forms-view-state forms-view-state
      :paginator {:forms-paginator/items-per-page items-per-page
-                 :forms-paginator/current-page-forms (mapv :uuid items)
+                 :forms-paginator/current-page-forms (mapv :uuid (vals forms))
                  :forms-paginator/current-page current-page
                  :forms-paginator/last-page last-page
                  :forms-paginator/count count
@@ -576,6 +581,22 @@
              db
              [:old-states (:old db) :forms/view-state form-id :expanded?]
              not)))
+
+(re-frame/reg-event-db
+ ::user-clicked-export-form-button
+ (fn-traced [db [_ form-id]]
+            (update-in
+             db
+             [:old-states (:old db) :forms/view-state form-id :export-interface-visible?]
+             not)))
+
+(re-frame/reg-event-db
+ ::user-selected-form-export
+ (fn-traced [db [_ form-id export-id]]
+            (assoc-in
+             db
+             [:old-states (:old db) :forms/view-state form-id :export-format]
+             export-id)))
 
 (defn- set-forms-expanded [forms-view-state expanded?]
   (->> forms-view-state
