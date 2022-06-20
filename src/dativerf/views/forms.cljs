@@ -7,7 +7,7 @@
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
             [dativerf.views.form :as form]
-            [dativerf.views.forms.exports :as exports]
+            [dativerf.exporters.forms :as forms-exporter]
             [dativerf.views.widgets :as widgets]))
 
 ;; Buttons
@@ -325,7 +325,7 @@
   [re-com/single-dropdown
    :src (at)
    :width "250px"
-   :choices exports/exports
+   :choices forms-exporter/exports
    :model @(re-frame/subscribe [::subs/forms-export-format])
    :tooltip "choose an export format"
    :on-change
@@ -340,7 +340,7 @@
 
 (defn export-forms-interface []
   (when @(re-frame/subscribe [::subs/forms-export-interface-visible?])
-    (let [export-fn (:efn (exports/export @(re-frame/subscribe
+    (let [export-fn (:efn (forms-exporter/export @(re-frame/subscribe
                                             [::subs/forms-export-format])))
           forms @(re-frame/subscribe
                   [::subs/forms-by-ids

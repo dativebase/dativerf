@@ -1,4 +1,4 @@
-(ns dativerf.views.form.exports
+(ns dativerf.exporters.form
   "Define export functions for single forms here. We may eventually want to
   create sub-namespaces such as dativerf.views.form.exports.latex etc.
   To create a new export, add a new map to the exports vec with :id, :label and

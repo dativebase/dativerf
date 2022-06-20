@@ -1,22 +1,22 @@
-(ns dativerf.views.forms.exports
+(ns dativerf.exporters.forms
   "Define export functions for multiple forms here. To create a new export, add
   a new map to the exports vec with :id, :label and :efn keys. The value of :efn
   should be an export function. It takes a collection of forms and returns a
   string."
   (:require [clojure.string :as str]
-            [dativerf.views.form.exports :as form-exports]
+            [dativerf.exporters.form :as form-exporter]
             [dativerf.utils :as utils]))
 
 (defn plain-text-export [forms]
   (->> forms
-       (map form-exports/plain-text-export)
+       (map form-exporter/plain-text-export)
        (str/join "\n\n")))
 
 ;; JSON export
 
 (defn json-export [forms]
   (->> forms
-       (map form-exports/prepare-form-for-jsonification)
+       (map form-exporter/prepare-form-for-jsonification)
        utils/->pretty-json))
 
 ;; Leipzig IGT export
@@ -27,7 +27,7 @@
   (str
    "<div>\n\n"
    (->> forms
-        (map form-exports/leipzig-igt-export)
+        (map form-exporter/leipzig-igt-export)
         (str/join "\n\n"))
    "\n\n</div>"))
 
