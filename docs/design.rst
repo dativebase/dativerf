@@ -24,6 +24,25 @@ Ready
 Backlog
 --------------------------------------------------------------------------------
 
+- Improvements to exports.
+
+  - Consider adding an optional :description key to the export maps. This
+    description could be used as a tooltip or as help text to give context on
+    the export.
+  - Should we allow some kind of export configuration? This seems pretty
+    open-ended and therefore difficult to implement generically. Maybe we could
+    just have several different variations on a single export format when we
+    want configuration.
+
+ - Dative-internal state for specific forms should be managed better.
+
+   - The :forms/fetched-at key should not be an attribute of the form. It should
+     be an attribute of
+     ``(get-in db [:old-states (:old db) :forms/view-state form-id])``.
+   - When a form is re-fetched from the server, its Dative-internal state is
+     reset to the default. This should not happen. We should merge the current
+     state on top of the defaults.
+
 - Successful authentication should result in the home page of the authenticated
   OLD being rendered under the home tab.
 - URLs should work on page refresh or on a fresh page. Currently they do not.
@@ -51,6 +70,7 @@ Backlog
 Done
 --------------------------------------------------------------------------------
 
+- DONE. The user can export a single form to various textual formats.
 - DONE. The authenticated OLD's application settings should be displayed at a
   URL path that contains the OLD slug.
 - DONE. When a user is logged out, we route them to the login GUI but the path

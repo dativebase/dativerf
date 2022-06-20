@@ -96,9 +96,17 @@
                          (filter (fn [{:keys [id]}] (= form-id id)))
                          first)))
 
+(defn- form-view-state [db form-id]
+  (get-in db [:old-states (:old db) :forms/view-state form-id]))
+
 (re-frame/reg-sub ::form-expanded?
                   (fn [db [_ form-id]]
-                    (-> db
-                        (get-in [:old-states (:old db) :forms/view-state form-id
-                                 :expanded?])
-                        boolean)))
+                    (-> db (form-view-state form-id) :expanded?)))
+
+(re-frame/reg-sub ::form-export-interface-visible?
+                  (fn [db [_ form-id]]
+                    (-> db (form-view-state form-id) :export-interface-visible?)))
+
+(re-frame/reg-sub ::form-export-format
+                  (fn [db [_ form-id]]
+                    (-> db (form-view-state form-id) :export-format)))
