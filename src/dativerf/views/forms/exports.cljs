@@ -19,6 +19,18 @@
        (map form-exports/prepare-form-for-jsonification)
        utils/->pretty-json))
 
+;; Leipzig IGT export
+
+;; I just enclose the collection of <div data-gloss> elements in a generic <div>
+;; for now. It's not clear to me whether we want to do more here.
+(defn leipzig-igt-export [forms]
+  (str
+   "<div>\n\n"
+   (->> forms
+        (map form-exports/leipzig-igt-export)
+        (str/join "\n\n"))
+   "\n\n</div>"))
+
 ;; API
 
 (def exports
@@ -27,7 +39,10 @@
     :efn plain-text-export}
    {:id :json
     :label "JSON"
-    :efn json-export}])
+    :efn json-export}
+   {:id :leipzig-igt
+    :label "Leipzig IGT"
+    :efn leipzig-igt-export}])
 
 (defn export [export-id]
   (first (for [{:as e :keys [id]} exports
