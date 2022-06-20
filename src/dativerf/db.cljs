@@ -30,6 +30,8 @@
    :forms-paginator/last-form 0
    :forms/labels-on? false
    :forms/expanded? false
+   :forms/export-interface-visible? false
+   :forms/export-format :plain-text
    ;; routing state
    :forms/previous-route nil
    :forms/previous-browse-route nil

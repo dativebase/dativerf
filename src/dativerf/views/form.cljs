@@ -5,6 +5,7 @@
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
             [dativerf.views.form.exports :as exports]
+            [dativerf.views.widgets :as widgets]
             [re-frame.core :as re-frame]
             [re-com.core :as re-com :refer [at]]))
 
@@ -353,24 +354,6 @@
    [[collapse-button form]
     [export-button form]]])
 
-;; From https://gist.github.com/rotaliator/73daca2dc93c586122a0da57189ece13
-(defn- copy-to-clipboard [val]
-  (let [el (js/document.createElement "textarea")]
-    (set! (.-value el) val)
-    (.appendChild js/document.body el)
-    (.select el)
-    (js/document.execCommand "copy")
-    (.removeChild js/document.body el)))
-
-(defn copy-button [export-string]
-  [re-com/md-circle-icon-button
-   :md-icon-name "zmdi-copy"
-   :size :smaller
-   :tooltip "copy export to clipboard"
-   :on-click (fn [e]
-               (.stopPropagation e)
-               (copy-to-clipboard export-string))])
-
 (defn form-export [export-string]
   [re-com/box
    :class (styles/export)
@@ -388,7 +371,7 @@
        [[re-com/h-box
          :gap "10px"
          :children [[form-export-select form-id]
-                    [copy-button export-string]]]
+                    [widgets/copy-button export-string "form export"]]]
         [form-export export-string]]])))
 
 (defn igt-form-controls [{:as form form-id :uuid}]

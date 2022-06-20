@@ -53,3 +53,21 @@
      :label key
      :width "240px"]
     [value-cell value]]])
+
+;; From https://gist.github.com/rotaliator/73daca2dc93c586122a0da57189ece13
+(defn- copy-to-clipboard [val]
+  (let [el (js/document.createElement "textarea")]
+    (set! (.-value el) val)
+    (.appendChild js/document.body el)
+    (.select el)
+    (js/document.execCommand "copy")
+    (.removeChild js/document.body el)))
+
+(defn copy-button [string string-description]
+  [re-com/md-circle-icon-button
+   :md-icon-name "zmdi-copy"
+   :size :smaller
+   :tooltip (str "copy " string-description " to clipboard")
+   :on-click (fn [e]
+               (.stopPropagation e)
+               (copy-to-clipboard string))])
