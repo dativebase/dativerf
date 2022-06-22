@@ -584,6 +584,17 @@
                :fx [[:dispatch [::navigate route]]]})))
 
 (re-frame/reg-event-db
+ ::user-changed-new-form-narrow-phonetic-transcription
+ (fn-traced [db [_ narrow-phonetic-transcription]]
+            (assoc db :new-form/narrow-phonetic-transcription
+                   narrow-phonetic-transcription)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-phonetic-transcription
+ (fn-traced [db [_ phonetic-transcription]]
+            (assoc db :new-form/phonetic-transcription phonetic-transcription)))
+
+(re-frame/reg-event-db
  ::user-changed-new-form-transcription
  (fn-traced [db [_ transcription]]
             (assoc db :new-form/transcription transcription)))
@@ -650,6 +661,10 @@
  (fn-traced [db [_ elicitor]] (assoc db :new-form/elicitor elicitor)))
 
 (re-frame/reg-event-db
+ ::user-changed-new-form-verifier
+ (fn-traced [db [_ verifier]] (assoc db :new-form/verifier verifier)))
+
+(re-frame/reg-event-db
  ::user-changed-new-form-source
  (fn-traced [db [_ source]] (assoc db :new-form/source source)))
 
@@ -660,6 +675,10 @@
 (re-frame/reg-event-db
  ::user-changed-new-form-semantics
  (fn-traced [db [_ semantics]] (assoc db :new-form/semantics semantics)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-status
+ (fn-traced [db [_ status]] (assoc db :new-form/status status)))
 
 (re-frame/reg-event-db
  ::user-clicked-add-new-translation-button

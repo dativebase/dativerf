@@ -1,23 +1,99 @@
 (ns dativerf.views.forms.new
-  (:require [re-frame.core :as re-frame]
-            [re-com.core :as re-com :refer [at]]
+  (:require [clojure.string :as str]
             [dativerf.events :as events]
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
-            [clojure.string :as str]))
+            [dativerf.utils :as utils]
+            [reagent.ratom :as r]
+            [re-frame.core :as re-frame]
+            [re-com.core :as re-com :refer [at]]))
 
-(defn label [label-text]
-  [re-com/box
-   :class (str (styles/attr-label) " " (styles/objlang))
-   :justify :end
-   :padding "0 1em 0 0"
-   :child label-text])
+(def model-metadata
+  {:new-form/narrow-phonetic-transcription
+   {:label "narr. phon. transcr."
+    :tooltip "A narrow phonetic transcription, probably in IPA."}
+   :new-form/phonetic-transcription
+   {:label "phon. transcr."
+    :tooltip "A phonetic transcription, probably in IPA."}
+   :new-form/transcription
+   {:tooltip "A transcription, probably orthographic."}
+   :new-form/morpheme-break
+   {:tooltip "A sequence of morpheme shapes and delimiters. The OLD assumes
+              phonemic shapes (e.g., “in-perfect”), but phonetic (i.e.,
+              allomorphic, e.g., “im-perfect”) ones are ok."}
+   :new-form/morpheme-gloss
+   {:tooltip "A sequence of morpheme glosses and delimiters, isomorphic to
+             the morpheme break sequence, e.g., “NEG-parfait”."}
+   :new-form/translations
+   {:tooltip "One or more translations for the form. Each translation may have
+              its own grammaticality/acceptibility specification."}
+   :new-form/comments
+   {:tooltip "General-purpose field for notes and commentary about the form."}
+   :new-form/speaker-comments
+   {:tooltip "Field specifically for comments about the form made by the
+              speaker/consultant."}
+   :new-form/elicitation-method
+   {:tooltip "How the form was elicited. Examples: “volunteered”, “judged
+              elicitor’s utterance”, “translation task”, etc."}
+   :new-form/tags
+   {:tooltip "Tags for categorizing your forms."}
+   :new-form/syntactic-category
+   {:tooltip "The category (syntactic and/or morphological) of the form."}
+   :new-form/date-elicited
+   {:tooltip "The date this form was elicited"}
+   :new-form/speaker
+   {:tooltip "The speaker (consultant) who produced or judged the form."}
+   :new-form/elicitor
+   {:tooltip "The linguistic fieldworker who elicited the form with the help
+              of the consultant."}
+   :new-form/verifier
+   {:tooltip "The user who has verified the reliability/accuracy of this form."}
+   :new-form/source
+   {:tooltip "The textual source (e.g., research paper, text collection, book
+              of learning materials) from which the form was drawn, if
+              applicable."}
+   :new-form/files
+   {:tooltip "Digital files (e.g., audio, video, image or text) that are
+              associated to this form."}
+   :new-form/syntax
+   {:tooltip "A syntactic phrase structure representation in some kind of
+              string-based format."}
+   :new-form/semantics
+   {:tooltip "A semantic representation of the meaning of the form in some
+              string-based format."}
+   :new-form/status
+   {:tooltip "The status of the form: “tested” for data that have been
+              elicited/tested/verified with a consultant or “requires testing”
+              for data that are posited and still need testing/elicitation."}})
+
+(defn model-x [x model]
+  (or (-> model model-metadata x)
+      (-> model name utils/kebab->space)))
+(def model-label (partial model-x :label))
+(def model-placeholder (partial model-x :placeholder))
+(def model-tooltip (partial model-x :tooltip))
+
+(defn label [model]
+  (let [showing? (r/atom false)
+        tooltip (or (and model (model-tooltip model)) "")]
+    [re-com/popover-tooltip
+     :label (or (and model (model-tooltip model)) "")
+     :showing? showing?
+     :width (when (> (count tooltip) 80) "400px")
+     :anchor
+     [re-com/box
+      :class (str (styles/attr-label) " " (styles/objlang))
+      :align :end
+      :padding "0 1em 0 0"
+      :attr {:on-mouse-over (re-com/handler-fn (reset! showing? true))
+             :on-mouse-out (re-com/handler-fn (reset! showing? false))}
+      :child (or (and model (model-label model)) "")]]))
 
 (defn transcription [grammaticalities]
   [re-com/h-box
    :gap "10px"
    :children
-   [[label "transcription"]
+   [[label :new-form/transcription]
     [re-com/single-dropdown
      :choices (for [g grammaticalities] {:id g :label g})
      :width "50px"
@@ -40,7 +116,7 @@
   [re-com/h-box
    :gap "10px"
    :children
-   [[label (if (zero? index) "translations" "")]
+   [[label (when (zero? index) :new-form/translations)]
     [re-com/single-dropdown
      :choices (for [g grammaticalities] {:id g :label g})
      :width "50px"
@@ -88,21 +164,21 @@
      ^{:key (str "translation-" index)}
      [translation index grammaticalities])])
 
-(defn labeled-input [label-text input-widget]
+(defn labeled-input [model input-widget]
   [re-com/h-box
    :gap "10px"
    :children
-   [[label label-text]
+   [[label model]
     input-widget]])
 
-(defn text-input [label-text model event]
+(defn text-input [model event]
   [re-com/h-box
    :gap "10px"
    :children
-   [[label label-text]
+   [[label model]
     [re-com/input-text
      :change-on-blur? false
-     :placeholder label-text
+     :placeholder (model-placeholder model)
      :width "560px"
      :model @(re-frame/subscribe [model])
      :on-change
@@ -183,21 +259,27 @@
    :class (styles/objlang)
    :gap "10px"
    :children
-   [[transcription grammaticalities]
-    [text-input "morpheme break" :new-form/morpheme-break
+   [[text-input :new-form/narrow-phonetic-transcription
+     ::events/user-changed-new-form-narrow-phonetic-transcription]
+    [text-input :new-form/phonetic-transcription
+     ::events/user-changed-new-form-phonetic-transcription]
+    [transcription grammaticalities]
+    [text-input :new-form/morpheme-break
      ::events/user-changed-new-form-morpheme-break]
-    [text-input "morpheme gloss" :new-form/morpheme-gloss
+    [text-input :new-form/morpheme-gloss
      ::events/user-changed-new-form-morpheme-gloss]
     [translations grammaticalities]]])
 
+(declare statuses)
+
 (defn named-resource-single-select
-  ([label-text choices model event]
-   (named-resource-single-select label-text choices model event :name))
-  ([label-text choices model event label-fn]
-   (named-resource-single-select label-text choices model event label-fn false))
-  ([label-text choices model event label-fn filter-box?]
+  ([choices model event]
+   (named-resource-single-select choices model event :name))
+  ([choices model event label-fn]
+   (named-resource-single-select choices model event label-fn false))
+  ([choices model event label-fn filter-box?]
    [labeled-input
-    label-text
+    model
     [re-com/single-dropdown
      :choices (sort-by (comp str/lower-case :label)
                        (for [r choices] {:id (:id r) :label (label-fn r)}))
@@ -208,7 +290,7 @@
 
 (defn tags [available-tags]
   [labeled-input
-   "tags"
+   :new-form/tags
    [re-com/selection-list
     :choices (sort-by :label
                       (for [tag available-tags]
@@ -225,7 +307,7 @@
    :class (styles/default)
    :gap "10px"
    :children
-   [[label "date elicited"]
+   [[label :new-form/date-elicited]
     ;; TODO: the datepicker of re-com doesn't work that well. For instance, the
     ;; :show-today? attribute doesn't work. This seems to be a known issue.
     [re-com/datepicker-dropdown
@@ -242,6 +324,10 @@
 (defn- source->citation [{:keys [author year]}]
   (str author " (" year ")"))
 
+(def statuses
+  (mapv (fn [x] {:id x :name x})
+        ["tested" "requires testing"]))
+
 (defn secondary-inputs [{:keys [elicitation-methods sources speakers
                                 syntactic-categories users]
                          available-tags :tags}]
@@ -250,31 +336,33 @@
      :class (styles/objlang)
      :gap "10px"
      :children
-     [[text-input "comments" :new-form/comments
-       ::events/user-changed-new-form-comments]
-      [text-input "speaker-comments" :new-form/speaker-comments
+     [[text-input :new-form/comments ::events/user-changed-new-form-comments]
+      [text-input :new-form/speaker-comments
        ::events/user-changed-new-form-speaker-comments]
-      [named-resource-single-select "elicitation method" elicitation-methods
+      [named-resource-single-select elicitation-methods
        :new-form/elicitation-method
        ::events/user-changed-new-form-elicitation-method]
       [tags available-tags]
-      [named-resource-single-select "syntactic category" syntactic-categories
+      [named-resource-single-select syntactic-categories
        :new-form/syntactic-category
        ::events/user-changed-new-form-syntactic-category]
       [date-elicited]
-      [named-resource-single-select "speaker" speakers :new-form/speaker
+      [named-resource-single-select speakers :new-form/speaker
        ::events/user-changed-new-form-speaker person->name]
-      [named-resource-single-select "elicitor" users :new-form/elicitor
+      [named-resource-single-select users :new-form/elicitor
        ::events/user-changed-new-form-elicitor person->name]
-      [named-resource-single-select "source" sources :new-form/source
+      [named-resource-single-select users :new-form/verifier
+       ::events/user-changed-new-form-verifier person->name]
+      [named-resource-single-select sources :new-form/source
        ::events/user-changed-new-form-source source->citation true]
       ;; TODO: files select. The original Dative has a custom search interface
       ;; that hits the POST /files/search endpoint to return the selectable
       ;; options.
-      [text-input "syntax" :new-form/syntax
-       ::events/user-changed-new-form-syntax]
-      [text-input "semantics" :new-form/semantics
-       ::events/user-changed-new-form-semantics]]]))
+      [text-input :new-form/syntax ::events/user-changed-new-form-syntax]
+      [text-input :new-form/semantics
+       ::events/user-changed-new-form-semantics]
+      [named-resource-single-select statuses
+       :new-form/status ::events/user-changed-new-form-status]]]))
 
 (defn save-button []
   [re-com/box
