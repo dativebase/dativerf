@@ -65,6 +65,18 @@
 (defclass actionable []
   {:cursor "pointer"})
 
+(declare new-form-input-label)
+(defclass new-form-input-label []
+  {:width "200px"
+   :text-align :right})
+
+(declare new-form-interface)
+(defclass new-form-interface []
+  {:border "1px solid #ddd"
+   :border-radius "5px"
+   :padding "1em"
+   :width "800px"})
+
 (declare widget)
 (defclass widget []
   {:color :red})
