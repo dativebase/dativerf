@@ -378,6 +378,15 @@
          (assoc fx :fx [[:dispatch [::navigate route]]]))))))
 
 (re-frame/reg-event-fx
+ ::fetch-new-form-data
+ (fn-traced [{:keys [db]} _]
+            {:http-xhrio
+             (assoc get-request
+                    :uri (old/forms-new (db/old db))
+                    :on-success [::forms-new-fetched]
+                    :on-failure [::forms-new-not-fetched])}))
+
+(re-frame/reg-event-fx
  ::server-authenticated
  (fn-traced [{:keys [db]} [event {:keys [authenticated user]}]]
             (if authenticated
@@ -575,6 +584,122 @@
                :fx [[:dispatch [::navigate route]]]})))
 
 (re-frame/reg-event-db
+ ::user-changed-new-form-transcription
+ (fn-traced [db [_ transcription]]
+            (assoc db :new-form/transcription transcription)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-grammaticality
+ (fn-traced [db [_ grammaticality]]
+            (assoc db :new-form/grammaticality grammaticality)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-morpheme-break
+ (fn-traced [db [_ morpheme-break]]
+            (assoc db :new-form/morpheme-break morpheme-break)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-morpheme-gloss
+ (fn-traced [db [_ morpheme-gloss]]
+            (assoc db :new-form/morpheme-gloss morpheme-gloss)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-translation-transcription
+ (fn-traced [db [_ index transcription]]
+            (assoc-in db [:new-form/translations index :transcription] transcription)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-translation-grammaticality
+ (fn-traced [db [_ index grammaticality]]
+            (assoc-in db [:new-form/translations index :grammaticality] grammaticality)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-comments
+ (fn-traced [db [_ comments]] (assoc db :new-form/comments comments)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-speaker-comments
+ (fn-traced [db [_ speaker-comments]]
+            (assoc db :new-form/speaker-comments speaker-comments)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-elicitation-method
+ (fn-traced [db [_ elicitation-method]]
+            (assoc db :new-form/elicitation-method elicitation-method)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-tags
+ (fn-traced [db [_ tags]] (assoc db :new-form/tags tags)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-syntactic-category
+ (fn-traced [db [_ syntactic-category]]
+            (assoc db :new-form/syntactic-category syntactic-category)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-date-elicited
+ (fn-traced [db [_ date-elicited]]
+            (assoc db :new-form/date-elicited date-elicited)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-speaker
+ (fn-traced [db [_ speaker]] (assoc db :new-form/speaker speaker)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-elicitor
+ (fn-traced [db [_ elicitor]] (assoc db :new-form/elicitor elicitor)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-source
+ (fn-traced [db [_ source]] (assoc db :new-form/source source)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-syntax
+ (fn-traced [db [_ syntax]] (assoc db :new-form/syntax syntax)))
+
+(re-frame/reg-event-db
+ ::user-changed-new-form-semantics
+ (fn-traced [db [_ semantics]] (assoc db :new-form/semantics semantics)))
+
+(re-frame/reg-event-db
+ ::user-clicked-add-new-translation-button
+ (fn-traced [db _]
+            (update db :new-form/translations conj {:transcription "" :grammaticality ""})))
+
+(re-frame/reg-event-db
+ ::user-clicked-remove-translation-button
+ (fn-traced [db [_ index]]
+            (update
+             db
+             :new-form/translations
+             (fn [translations]
+               (->> translations
+                    (map vector (range))
+                    (filter (fn [[idx]] (not= index idx)))
+                    (map second)
+                    vec)))))
+
+(re-frame/reg-event-db
+ ::user-clicked-toggle-secondary-new-form-fields
+ (fn-traced [db _]
+            (update db :forms/new-form-secondary-fields-visible? not)))
+
+(re-frame/reg-event-db
+ ::user-clicked-clear-new-form-interface
+ (fn-traced [db _]
+            (merge db db/default-new-form-state)))
+
+(re-frame/reg-event-db
+ ::user-clicked-help-creating-new-form
+ ;; TODO
+ (fn-traced [db _]))
+
+(re-frame/reg-event-db
+ ::user-clicked-create-new-form-button
+ ;; TODO
+ (fn-traced [db _] (println "You wanna create a form, right?")))
+
+(re-frame/reg-event-db
  ::user-clicked-form
  (fn-traced [db [_event form-id]]
             (update-in
@@ -623,8 +748,11 @@
 
 (re-frame/reg-event-db
  ::user-clicked-export-forms-button
- (fn-traced [db _]
-            (update db :forms/export-interface-visible? not)))
+ (fn-traced [db _] (update db :forms/export-interface-visible? not)))
+
+(re-frame/reg-event-db
+ ::user-clicked-new-form-button
+ (fn-traced [db _] (update db :forms/new-form-interface-visible? not)))
 
 (re-frame/reg-event-db
  ::user-clicked-expand-all-forms-button

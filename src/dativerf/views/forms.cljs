@@ -7,6 +7,7 @@
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
             [dativerf.views.form :as form]
+            [dativerf.views.forms.new :as forms-new]
             [dativerf.exporters.forms :as forms-exporter]
             [dativerf.views.widgets :as widgets]))
 
@@ -83,8 +84,11 @@
   [re-com/md-circle-icon-button
    :md-icon-name "zmdi-plus"
    :size :smaller
-   :tooltip "new form"
-   :disabled? true])
+   :tooltip (if @(re-frame/subscribe [::subs/forms-new-form-interface-visible?])
+              "hide new form interface"
+              "show new form interface")
+   :on-click (fn [_] (re-frame/dispatch
+                      [::events/user-clicked-new-form-button]))])
 
 (defn expand-all-button []
   [re-com/md-circle-icon-button
@@ -362,6 +366,7 @@
    :padding "1em"
    :children
    [[browse-navigation]
+    [forms-new/interface]
     [export-forms-interface]
     [forms-enumeration]]])
 

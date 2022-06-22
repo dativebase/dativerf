@@ -19,6 +19,34 @@
 (re-frame/reg-sub :login/state (fn [db _] (:login/state db)))
 (re-frame/reg-sub :login/invalid-reason (fn [db _] (:login/invalid-reason db)))
 
+;; New Form
+(re-frame/reg-sub :new-form/transcription (fn [db] (:new-form/transcription db)))
+(re-frame/reg-sub :new-form/grammaticality (fn [db] (:new-form/grammaticality db)))
+(re-frame/reg-sub :new-form/morpheme-break (fn [db] (:new-form/morpheme-break db)))
+(re-frame/reg-sub :new-form/morpheme-gloss (fn [db] (:new-form/morpheme-gloss db)))
+(re-frame/reg-sub :new-form/translations (fn [db] (:new-form/translations db)))
+(re-frame/reg-sub :new-form/translation-transcription
+                  (fn [db [_ index]]
+                    (get-in db [:new-form/translations index :transcription])))
+(re-frame/reg-sub :new-form/translation-grammaticality
+                  (fn [db [_ index]]
+                    (get-in db [:new-form/translations index :grammaticality])))
+(re-frame/reg-sub :new-form/comments (fn [db] (:new-form/comments db)))
+(re-frame/reg-sub :new-form/speaker-comments
+                  (fn [db] (:new-form/speaker-comments db)))
+(re-frame/reg-sub :new-form/elicitation-method
+                  (fn [db] (:new-form/elicitation-method db)))
+(re-frame/reg-sub :new-form/tags (fn [db] (:new-form/tags db)))
+(re-frame/reg-sub :new-form/syntactic-category
+                  (fn [db] (:new-form/syntactic-category db)))
+(re-frame/reg-sub :new-form/date-elicited
+                  (fn [db] (:new-form/date-elicited db)))
+(re-frame/reg-sub :new-form/speaker (fn [db] (:new-form/speaker db)))
+(re-frame/reg-sub :new-form/elicitor (fn [db] (:new-form/elicitor db)))
+(re-frame/reg-sub :new-form/source (fn [db] (:new-form/source db)))
+(re-frame/reg-sub :new-form/syntax (fn [db] (:new-form/syntax db)))
+(re-frame/reg-sub :new-form/semantics (fn [db] (:new-form/semantics db)))
+
 (re-frame/reg-sub
  ::old-settings
  (fn [db _]
@@ -123,3 +151,15 @@
 (re-frame/reg-sub
  ::forms-export-interface-visible?
  (fn [db _] (:forms/export-interface-visible? db)))
+
+(re-frame/reg-sub
+ ::forms-new-form-interface-visible?
+ (fn [db _] (:forms/new-form-interface-visible? db)))
+
+(re-frame/reg-sub
+ ::forms-new-form-secondary-fields-visible?
+ (fn [db _] (:forms/new-form-secondary-fields-visible? db)))
+
+(re-frame/reg-sub
+ ::forms-new
+ (fn [db _] (get-in db [:old-states (:old db) :forms-new])))

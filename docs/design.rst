@@ -41,6 +41,16 @@ Backlog
     just have several different variations on a single export format when we
     want configuration.
 
+- Add buttons to "New Form" interface to add new resources in real time. Resources:
+  - elicitation method
+  - syntactic category
+  - tag
+
+- Support associating files to a newly created form. The original Dative has a
+  custom search interface that hits the POST /files/search endpoint to return
+  the selectable that match the user's search term. This uses the OLD search API
+  to perform a disjunctive search using fuzzy matching.
+
  - Dative-internal state for specific forms should be managed better.
 
    - The :forms/fetched-at key should not be an attribute of the form. It should
@@ -72,6 +82,18 @@ Backlog
   - It should be clear which OLDs have valid cookies, i.e., which are
     authenticated.
   - A failure to de-authenticated should never break the app.
+
+- Consider making DativeRF a PWA (progressive web app).
+
+  - It could use Service Workers to cache the static assets in the browser Cache
+    or IndexedDB.
+  - It could cache OLD-specific content in IndexedDB
+  - On IndexedDB, see
+    https://medium.com/jspoint/indexeddb-your-second-step-towards-progressive-web-apps-pwa-dcbcd6cc2076
+  - IndexedDB clojurescript example: https://gist.github.com/MokkeMeguru/858813437a1f76e4552ed05ee124c523
+  - cljs-bean: https://github.com/mfikes/cljs-bean
+  - Web workers in ClojureScript: https://www.reddit.com/r/Clojure/comments/h097lg/web_workers_in_clojurescript_opinions/
+  - Web Workers with ShadowCLJS: https://shadow-cljs.github.io/docs/UsersGuide.html#_web_workers
 
 
 Done
