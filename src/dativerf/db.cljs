@@ -7,7 +7,9 @@
     :url "https://app.onlinelinguisticdatabase.org/okaold"}])
 
 (def default-new-form-state
-  {:new-form/transcription ""
+  {:new-form/narrow-phonetic-transcription ""
+   :new-form/phonetic-transcription ""
+   :new-form/transcription ""
    :new-form/grammaticality ""
    :new-form/morpheme-break ""
    :new-form/morpheme-gloss ""
@@ -20,9 +22,11 @@
    :new-form/date-elicited nil
    :new-form/speaker nil
    :new-form/elicitor nil
+   :new-form/verifier nil
    :new-form/source nil
    :new-form/syntax ""
-   :new-form/semantics ""})
+   :new-form/semantics ""
+   :new-form/status "tested"})
 
 (def default-db
   (-> {:name "Dative"

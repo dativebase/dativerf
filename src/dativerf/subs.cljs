@@ -20,6 +20,10 @@
 (re-frame/reg-sub :login/invalid-reason (fn [db _] (:login/invalid-reason db)))
 
 ;; New Form
+(re-frame/reg-sub :new-form/narrow-phonetic-transcription
+                  (fn [db] (:new-form/narrow-phonetic-transcription db)))
+(re-frame/reg-sub :new-form/phonetic-transcription
+                  (fn [db] (:new-form/phonetic-transcription db)))
 (re-frame/reg-sub :new-form/transcription (fn [db] (:new-form/transcription db)))
 (re-frame/reg-sub :new-form/grammaticality (fn [db] (:new-form/grammaticality db)))
 (re-frame/reg-sub :new-form/morpheme-break (fn [db] (:new-form/morpheme-break db)))
@@ -43,9 +47,11 @@
                   (fn [db] (:new-form/date-elicited db)))
 (re-frame/reg-sub :new-form/speaker (fn [db] (:new-form/speaker db)))
 (re-frame/reg-sub :new-form/elicitor (fn [db] (:new-form/elicitor db)))
+(re-frame/reg-sub :new-form/verifier (fn [db] (:new-form/verifier db)))
 (re-frame/reg-sub :new-form/source (fn [db] (:new-form/source db)))
 (re-frame/reg-sub :new-form/syntax (fn [db] (:new-form/syntax db)))
 (re-frame/reg-sub :new-form/semantics (fn [db] (:new-form/semantics db)))
+(re-frame/reg-sub :new-form/status (fn [db] (:new-form/status db)))
 
 (re-frame/reg-sub
  ::old-settings
