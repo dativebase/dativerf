@@ -26,6 +26,7 @@
 (defn default-form-view-state [{:keys [forms/expanded?]}]
   {:expanded? expanded?
    :export-interface-visible? false
+   :edit-interface-visible? false
    :export-format :plain-text})
 
 (defn- forms->uuid-keyed-forms-map [forms fetched-at]
@@ -589,6 +590,14 @@
              db
              [:old-states (:old db) :forms/view-state form-id :export-interface-visible?]
              not)))
+
+(re-frame/reg-event-db
+  ::user-clicked-edit-form-button
+  (fn-traced [db [_ form-id]]
+             (update-in
+               db
+               [:old-states (:old db) :forms/view-state form-id :edit-interface-visible?]
+               not)))
 
 (re-frame/reg-event-db
  ::user-selected-form-export

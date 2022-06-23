@@ -113,6 +113,10 @@
                   (fn [db [_ form-id]]
                     (-> db (form-view-state form-id) :export-interface-visible?)))
 
+(re-frame/reg-sub ::form-edit-interface-visible?
+                  (fn [db [_ form-id]]
+                      (-> db (form-view-state form-id) :edit-interface-visible?)))
+
 (re-frame/reg-sub ::form-export-format
                   (fn [db [_ form-id]]
                     (-> db (form-view-state form-id) :export-format)))
