@@ -8,6 +8,10 @@
             [re-frame.core :as re-frame]
             [re-com.core :as re-com :refer [at]]))
 
+(def statuses
+  (mapv (fn [x] {:id x :name x})
+        ["tested" "requires testing"]))
+
 (def model-metadata
   {:new-form/narrow-phonetic-transcription
    {:label "narr. phon. transcr."
@@ -172,17 +176,18 @@
     input-widget]])
 
 (defn text-input [model event]
-  [re-com/h-box
-   :gap "10px"
-   :children
-   [[label model]
-    [re-com/input-text
-     :change-on-blur? false
-     :placeholder (model-placeholder model)
-     :width "560px"
-     :model @(re-frame/subscribe [model])
-     :on-change
-     (fn [val] (re-frame/dispatch-sync [event val]))]]])
+  (when (some #{model} @(re-frame/subscribe [::subs/visible-form-fields]))
+    [re-com/h-box
+     :gap "10px"
+     :children
+     [[label model]
+      [re-com/input-text
+       :change-on-blur? false
+       :placeholder (model-placeholder model)
+       :width "560px"
+       :model @(re-frame/subscribe [model])
+       :on-change
+       (fn [val] (re-frame/dispatch-sync [event val]))]]]))
 
 (defn toggle-secondary-inputs-button []
   [re-com/md-circle-icon-button
@@ -270,63 +275,61 @@
      ::events/user-changed-new-form-morpheme-gloss]
     [translations grammaticalities]]])
 
-(declare statuses)
-
 (defn named-resource-single-select
   ([choices model event]
    (named-resource-single-select choices model event :name))
   ([choices model event label-fn]
    (named-resource-single-select choices model event label-fn false))
   ([choices model event label-fn filter-box?]
-   [labeled-input
-    model
-    [re-com/single-dropdown
-     :choices (sort-by (comp str/lower-case :label)
-                       (for [r choices] {:id (:id r) :label (label-fn r)}))
-     :width "560px"
-     :filter-box? filter-box?
-     :model @(re-frame/subscribe [model])
-     :on-change (fn [value] (re-frame/dispatch [event value]))]]))
+   (when (some #{model} @(re-frame/subscribe [::subs/visible-form-fields]))
+     [labeled-input
+      model
+      [re-com/single-dropdown
+       :choices (sort-by (comp str/lower-case :label)
+                         (for [r choices] {:id (:id r) :label (label-fn r)}))
+       :width "560px"
+       :filter-box? filter-box?
+       :model @(re-frame/subscribe [model])
+       :on-change (fn [value] (re-frame/dispatch [event value]))]])))
 
 (defn tags [available-tags]
-  [labeled-input
-   :new-form/tags
-   [re-com/selection-list
-    :choices (sort-by :label
-                      (for [tag available-tags]
-                        {:id (:id tag) :label (:name tag)}))
-    :width "560px"
-    :height "60px"
-    :model @(re-frame/subscribe [:new-form/tags])
-    :on-change (fn [tags]
-                 (re-frame/dispatch
-                  [::events/user-changed-new-form-tags tags]))]])
+  (when (some #{:new-form/tags} @(re-frame/subscribe [::subs/visible-form-fields]))
+    [labeled-input
+     :new-form/tags
+     [re-com/selection-list
+      :choices (sort-by :label
+                        (for [tag available-tags]
+                          {:id (:id tag) :label (:name tag)}))
+      :width "560px"
+      :height "60px"
+      :model @(re-frame/subscribe [:new-form/tags])
+      :on-change (fn [tags]
+                   (re-frame/dispatch
+                    [::events/user-changed-new-form-tags tags]))]]))
 
 (defn date-elicited []
-  [re-com/h-box
-   :class (styles/default)
-   :gap "10px"
-   :children
-   [[label :new-form/date-elicited]
-    ;; TODO: the datepicker of re-com doesn't work that well. For instance, the
-    ;; :show-today? attribute doesn't work. This seems to be a known issue.
-    [re-com/datepicker-dropdown
-     :model @(re-frame/subscribe [:new-form/date-elicited])
-     :show-today? true
-     :on-change (fn [date-elicited]
-                  (re-frame/dispatch
-                   [::events/user-changed-new-form-date-elicited
-                    date-elicited]))]]])
+  (when (some #{:new-form/date-elicited}
+              @(re-frame/subscribe [::subs/visible-form-fields]))
+    [re-com/h-box
+     :class (styles/default)
+     :gap "10px"
+     :children
+     [[label :new-form/date-elicited]
+      ;; TODO: the datepicker of re-com doesn't work that well. For instance, the
+      ;; :show-today? attribute doesn't work. This seems to be a known issue.
+      [re-com/datepicker-dropdown
+       :model @(re-frame/subscribe [:new-form/date-elicited])
+       :show-today? true
+       :on-change (fn [date-elicited]
+                    (re-frame/dispatch
+                     [::events/user-changed-new-form-date-elicited
+                      date-elicited]))]]]))
 
 (defn- person->name [person]
   (str (:first-name person) " " (:last-name person)))
 
 (defn- source->citation [{:keys [author year]}]
   (str author " (" year ")"))
-
-(def statuses
-  (mapv (fn [x] {:id x :name x})
-        ["tested" "requires testing"]))
 
 (defn secondary-inputs [{:keys [elicitation-methods sources speakers
                                 syntactic-categories users]
@@ -393,7 +396,7 @@
     (if-let [forms-new-data @(re-frame/subscribe [::subs/forms-new])]
       [re-com/v-box
        :gap "10px"
-       :class (styles/new-form-interface)
+       :class (styles/form-sub-interface)
        :children
        [[header]
         [inputs forms-new-data]

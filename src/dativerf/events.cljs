@@ -39,6 +39,10 @@
          [:forms/new-form-secondary-fields-visible?]
          ::user-clicked-export-forms-button
          [:forms/export-interface-visible?]
+         ::user-clicked-form-settings-button
+         [:forms/settings-interface-visible?]
+         ::user-clicked-toggle-form-field-visibility-interface
+         [:forms/settings-field-visibility-interface-visible?]
          ::user-clicked-new-form-button
          [:forms/new-form-interface-visible?]}]
   (register-toggler event path))
@@ -270,6 +274,11 @@
 (re-frame/reg-event-db ::password-invalidated-login
                        transition-login-fsm-db-handler)
 (re-frame/reg-event-db ::no-op transition-login-fsm-db-handler)
+
+(re-frame/reg-event-db
+ ::user-selected-visible-form-fields
+ (fn-traced [db [_ visible-form-fields]]
+            (assoc db :forms/visible-fields visible-form-fields)))
 
 (re-frame/reg-event-db
  ::user-changed-current-old-instance

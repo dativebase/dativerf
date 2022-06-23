@@ -8,6 +8,7 @@
             [dativerf.utils :as utils]
             [dativerf.views.form :as form]
             [dativerf.views.forms.new :as forms-new]
+            [dativerf.views.forms.settings :as forms-settings]
             [dativerf.exporters.forms :as forms-exporter]
             [dativerf.views.widgets :as widgets]))
 
@@ -149,6 +150,14 @@
    :on-click (fn [_] (re-frame/dispatch
                       [::events/user-clicked-back-to-browse-button]))])
 
+(defn settings-button []
+  [re-com/md-circle-icon-button
+   :md-icon-name "zmdi-settings"
+   :size :smaller
+   :tooltip "form settings"
+   :on-click (fn [_] (re-frame/dispatch
+                      [::events/user-clicked-form-settings-button]))])
+
 (defn help-button []
   [re-com/md-circle-icon-button
    :md-icon-name "zmdi-help"
@@ -223,6 +232,7 @@
    :gap "5px"
    :size "auto"
    :children [[new-form-button]
+              [search-button]
               [expand-all-button]
               [collapse-all-button]]])
 
@@ -238,10 +248,10 @@
    :gap "5px"
    :size "auto"
    :justify :end
-   :children [[search-button]
-              [export-button]
+   :children [[export-button]
               [import-button]
               [labels-button]
+              [settings-button]
               [help-button]]])
 
 (defn browse-navigation-top []
@@ -366,6 +376,7 @@
    :padding "1em"
    :children
    [[browse-navigation]
+    [forms-settings/interface]
     [forms-new/interface]
     [export-forms-interface]
     [forms-enumeration]]])
