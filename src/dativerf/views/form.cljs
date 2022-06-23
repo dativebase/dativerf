@@ -30,6 +30,15 @@
    :on-click (fn [_] (re-frame/dispatch
                       [::events/user-clicked-form uuid]))])
 
+(defn edit-button [{form-id :uuid}]
+      [re-com/md-circle-icon-button
+       :md-icon-name "zmdi-edit"
+       :size :smaller
+       :tooltip "update this form"
+       :on-click (fn [_]
+                     (re-frame/dispatch
+                       [::events/user-clicked-edit-form-button form-id]))])
+
 (defn form-export-select [form-id]
   [re-com/single-dropdown
    :src (at)
@@ -352,6 +361,7 @@
    :gap "5px"
    :children
    [[collapse-button form]
+    [edit-button]
     [export-button form]]])
 
 (defn form-export [export-string]
@@ -373,6 +383,11 @@
          :children [[form-export-select form-id]
                     [widgets/copy-button export-string "form export"]]]
         [form-export export-string]]])))
+
+(defn igt-form-edit-interface [{:as form form-id :uuid}]
+      (when @(re-frame/subscribe [::subs/form-edit-interface-visible? form-id])
+            ;;TODO
+            ))
 
 (defn igt-form-controls [{:as form form-id :uuid}]
   (when @(re-frame/subscribe [::subs/form-expanded? form-id])
