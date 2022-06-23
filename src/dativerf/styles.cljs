@@ -70,8 +70,8 @@
   {:width "200px"
    :text-align :right})
 
-(declare new-form-interface)
-(defclass new-form-interface []
+(declare form-sub-interface)
+(defclass form-sub-interface []
   {:border "1px solid #ddd"
    :border-radius "5px"
    :padding "1em"

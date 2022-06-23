@@ -33,6 +33,12 @@
        (map (juxt key (comp :val val)))
        (into {})))
 
+(def default-visible-form-fields
+  (->> default-new-form-state
+       (filter (comp (complement false?) :visible? val))
+       (map key)
+       set))
+
 (def default-db
   (-> {:name "Dative"
        :active-route {:handler :home}
@@ -58,6 +64,9 @@
        :forms/labels-on? false
        :forms/expanded? false
        :forms/export-interface-visible? false
+       :forms/settings-interface-visible? false
+       :forms/settings-field-visibility-interface-visible? false
+       :forms/visible-fields default-visible-form-fields
        :forms/export-format :plain-text
        :forms/new-form-interface-visible? false
        :forms/new-form-secondary-fields-visible? false

@@ -154,9 +154,20 @@
 (re-frame/reg-sub ::forms-export-format
                   (fn [db _] (:forms/export-format db)))
 
+(re-frame/reg-sub ::visible-form-fields
+                  (fn [db _] (:forms/visible-fields db)))
+
 (re-frame/reg-sub
  ::forms-export-interface-visible?
  (fn [db _] (:forms/export-interface-visible? db)))
+
+(re-frame/reg-sub
+ ::forms-settings-interface-visible?
+ (fn [db _] (:forms/settings-interface-visible? db)))
+
+(re-frame/reg-sub
+ ::forms-settings-field-visibility-interface-visible?
+ (fn [db _] (:forms/settings-field-visibility-interface-visible? db)))
 
 (re-frame/reg-sub
  ::forms-new-form-interface-visible?
