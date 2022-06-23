@@ -7,26 +7,31 @@
     :url "https://app.onlinelinguisticdatabase.org/okaold"}])
 
 (def default-new-form-state
-  {:new-form/narrow-phonetic-transcription ""
-   :new-form/phonetic-transcription ""
-   :new-form/transcription ""
-   :new-form/grammaticality ""
-   :new-form/morpheme-break ""
-   :new-form/morpheme-gloss ""
-   :new-form/translations [{:transcription "" :grammaticality ""}]
-   :new-form/comments ""
-   :new-form/speaker-comments ""
-   :new-form/elicitation-method nil
-   :new-form/tags #{}
-   :new-form/syntactic-category nil
-   :new-form/date-elicited nil
-   :new-form/speaker nil
-   :new-form/elicitor nil
-   :new-form/verifier nil
-   :new-form/source nil
-   :new-form/syntax ""
-   :new-form/semantics ""
-   :new-form/status "tested"})
+  {:new-form/narrow-phonetic-transcription {:val "" :visible? false}
+   :new-form/phonetic-transcription {:val "" :visible? false}
+   :new-form/transcription {:val ""}
+   :new-form/grammaticality {:val ""}
+   :new-form/morpheme-break {:val ""}
+   :new-form/morpheme-gloss {:val ""}
+   :new-form/translations {:val [{:transcription "" :grammaticality ""}]}
+   :new-form/comments {:val ""}
+   :new-form/speaker-comments {:val ""}
+   :new-form/elicitation-method {:val nil}
+   :new-form/tags {:val #{}}
+   :new-form/syntactic-category {:val nil}
+   :new-form/date-elicited {:val nil}
+   :new-form/speaker {:val nil}
+   :new-form/elicitor {:val nil}
+   :new-form/verifier {:val nil :visible? false}
+   :new-form/source {:val nil}
+   :new-form/syntax {:val ""}
+   :new-form/semantics {:val ""}
+   :new-form/status {:val "tested"}})
+
+(def default-new-form-vals
+  (->> default-new-form-state
+       (map (juxt key (comp :val val)))
+       (into {})))
 
 (def default-db
   (-> {:name "Dative"
@@ -60,7 +65,12 @@
        :forms/previous-route nil
        :forms/previous-browse-route nil
        :old-settings/previous-route nil}
-      (merge default-new-form-state)))
+      (merge default-new-form-vals)))
+
+(defn default-form-view-state [{:as _db :keys [forms/expanded?]}]
+  {:expanded? expanded?
+   :export-interface-visible? false
+   :export-format :plain-text})
 
 (defn old [{:keys [old olds]}]
   (->> olds (filter (fn [{:keys [url]}] (= old url))) first))
