@@ -19,7 +19,7 @@
 (re-frame/reg-sub :login/state (fn [db _] (:login/state db)))
 (re-frame/reg-sub :login/invalid-reason (fn [db _] (:login/invalid-reason db)))
 
-;; New Form
+;; "New Form" interface subscriptions
 (re-frame/reg-sub :new-form/narrow-phonetic-transcription
                   (fn [db] (:new-form/narrow-phonetic-transcription db)))
 (re-frame/reg-sub :new-form/phonetic-transcription
