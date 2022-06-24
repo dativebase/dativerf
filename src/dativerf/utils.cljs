@@ -27,6 +27,10 @@
 
 (defn ->pretty-json [x] (.stringify js/JSON (clj->js x) nil 2))
 
+(defn set-kw-ns [ns kw] (->> kw name (keyword ns)))
+
+(def set-kw-ns-to-form (partial set-kw-ns "form"))
+
 (def handler->tab
   {:forms-last-page :forms
    :form-page :forms

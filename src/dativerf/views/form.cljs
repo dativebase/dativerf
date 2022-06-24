@@ -5,6 +5,7 @@
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
             [dativerf.exporters.form :as form-exporter]
+            [dativerf.utils :as utils]
             [dativerf.views.widgets :as widgets]
             [re-frame.core :as re-frame]
             [re-com.core :as re-com :refer [at]]))
@@ -190,17 +191,19 @@
 (defn igt-transcription
   [{:keys [attr transcription grammaticality left-enclose right-enclose]
     :or {grammaticality "" left-enclose "" right-enclose ""}}]
-  [re-com/h-box
-   :src (at)
-   :children
-   [(when @(re-frame/subscribe [::subs/forms-labels-on?])
-      [igt-label (-> attr attrs :label)])
-    [re-com/box
-     :max-width form-value-width
-     :child
-     (if (or (seq grammaticality) (seq transcription))
-       (str left-enclose grammaticality transcription right-enclose)
-       "")]]])
+  (when (some #{(utils/set-kw-ns-to-form attr)}
+              @(re-frame/subscribe [::subs/visible-form-fields]))
+    [re-com/h-box
+     :src (at)
+     :children
+     [(when @(re-frame/subscribe [::subs/forms-labels-on?])
+        [igt-label (-> attr attrs :label)])
+      [re-com/box
+       :max-width form-value-width
+       :child
+       (if (or (seq grammaticality) (seq transcription))
+         (str left-enclose grammaticality transcription right-enclose)
+         "")]]]))
 
 (defn igt-translations [form-id translations]
   [re-com/h-box
@@ -217,8 +220,10 @@
 
 (defn secondary-scalar
   [attr value]
-  (when (or (and (string? value) (seq value))
-            (and (not (string? value)) value))
+  (when (and (or (and (string? value) (seq value))
+                 (and (not (string? value)) value))
+             (some #{(utils/set-kw-ns-to-form attr)}
+                   @(re-frame/subscribe [::subs/visible-form-fields])))
     [re-com/h-box
      :src (at)
      :children
@@ -248,7 +253,8 @@
       :tooltip "view this form"]]]])
 
 (defn tags-as-string [tags]
-  (when (seq tags)
+  (when (and (seq tags)
+             (some #{:form/tags} @(re-frame/subscribe [::subs/visible-form-fields])))
     [re-com/h-box
      :src (at)
      :children
@@ -258,7 +264,9 @@
        :child (str/join ", " (map :name tags))]]]))
 
 (defn files-as-string [files]
-  (when (seq files)
+  (when (and (seq files)
+             (some #{:form/files}
+                   @(re-frame/subscribe [::subs/visible-form-fields])))
     [re-com/h-box
      :src (at)
      :children
@@ -268,7 +276,9 @@
        :child (str/join ", " (map :filename files))]]]))
 
 (defn named-entity-as-string [attr entity]
-  (when entity
+  (when (and entity
+             (some #{(utils/set-kw-ns-to-form attr)}
+                   @(re-frame/subscribe [::subs/visible-form-fields])))
     [re-com/h-box
      :src (at)
      :children
@@ -284,7 +294,9 @@
   (partial named-entity-as-string :elicitation-method))
 
 (defn source-as-string [{:as source :keys [author year]}]
-  (when source
+  (when (and source
+             (some #{:form/source}
+                   @(re-frame/subscribe [::subs/visible-form-fields])))
     [re-com/h-box
      :src (at)
      :children
@@ -294,7 +306,9 @@
        :child (str author " (" year ")")]]]))
 
 (defn person-as-string [attr {:as person :keys [first-name last-name]}]
-  (when person
+  (when (and person
+             (some #{(utils/set-kw-ns-to-form attr)}
+                   @(re-frame/subscribe [::subs/visible-form-fields])))
     [re-com/h-box
      :src (at)
      :children

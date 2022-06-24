@@ -176,7 +176,8 @@
     input-widget]])
 
 (defn text-input [model event]
-  (when (some #{model} @(re-frame/subscribe [::subs/visible-form-fields]))
+  (when (some #{(utils/set-kw-ns-to-form model)}
+              @(re-frame/subscribe [::subs/visible-form-fields]))
     [re-com/h-box
      :gap "10px"
      :children
@@ -261,8 +262,7 @@
 
 (defn inputs [{:keys [grammaticalities]}]
   [re-com/v-box
-   :class (styles/objlang)
-   :gap "10px"
+   :class (str (styles/v-box-gap-with-nils) " " (styles/objlang))
    :children
    [[text-input :new-form/narrow-phonetic-transcription
      ::events/user-changed-new-form-narrow-phonetic-transcription]
@@ -281,7 +281,8 @@
   ([choices model event label-fn]
    (named-resource-single-select choices model event label-fn false))
   ([choices model event label-fn filter-box?]
-   (when (some #{model} @(re-frame/subscribe [::subs/visible-form-fields]))
+   (when (some #{(utils/set-kw-ns-to-form model)}
+               @(re-frame/subscribe [::subs/visible-form-fields]))
      [labeled-input
       model
       [re-com/single-dropdown
@@ -293,7 +294,7 @@
        :on-change (fn [value] (re-frame/dispatch [event value]))]])))
 
 (defn tags [available-tags]
-  (when (some #{:new-form/tags} @(re-frame/subscribe [::subs/visible-form-fields]))
+  (when (some #{:form/tags} @(re-frame/subscribe [::subs/visible-form-fields]))
     [labeled-input
      :new-form/tags
      [re-com/selection-list
@@ -308,7 +309,7 @@
                     [::events/user-changed-new-form-tags tags]))]]))
 
 (defn date-elicited []
-  (when (some #{:new-form/date-elicited}
+  (when (some #{:form/date-elicited}
               @(re-frame/subscribe [::subs/visible-form-fields]))
     [re-com/h-box
      :class (styles/default)
@@ -336,8 +337,7 @@
                          available-tags :tags}]
   (when @(re-frame/subscribe [::subs/forms-new-form-secondary-fields-visible?])
     [re-com/v-box
-     :class (styles/objlang)
-     :gap "10px"
+     :class (str (styles/v-box-gap-with-nils) " " (styles/objlang))
      :children
      [[text-input :new-form/comments ::events/user-changed-new-form-comments]
       [text-input :new-form/speaker-comments

@@ -281,6 +281,20 @@
             (assoc db :forms/visible-fields visible-form-fields)))
 
 (re-frame/reg-event-db
+ ::user-clicked-make-all-form-fields-visible-button
+ (fn-traced [db _]
+            (assoc db :forms/visible-fields (set (keys db/default-form-state)))))
+
+(re-frame/reg-event-db
+ ::user-clicked-make-no-form-fields-visible-button
+ (fn-traced [db _] (assoc db :forms/visible-fields db/always-visible-form-fields)))
+
+(re-frame/reg-event-db
+ ::user-clicked-restore-default-field-visibility-button
+ (fn-traced [db _]
+            (assoc db :forms/visible-fields db/default-visible-form-fields)))
+
+(re-frame/reg-event-db
  ::user-changed-current-old-instance
  (fn-traced [db [event old]]
             (-> db
@@ -641,7 +655,7 @@
 
 (re-frame/reg-event-db
  ::user-clicked-clear-new-form-interface
- (fn-traced [db _] (merge db db/default-new-form-vals)))
+ (fn-traced [db _] (merge db db/default-new-form-state)))
 
 (re-frame/reg-event-db
  ::user-clicked-help-creating-new-form

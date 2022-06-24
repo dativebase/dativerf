@@ -77,6 +77,14 @@
    :padding "1em"
    :width "800px"})
 
+(declare v-box-gap-with-nils)
+;; This lets us have a v-box with a space between all its direct h-box children
+;; without gaps (as happens when you use :gab "10px" on the parent v-box
+;; directly.)
+(defclass v-box-gap-with-nils []
+  {}
+  [:>.rc-h-box :>.rc-v-box {:margin-top "10px"}])
+
 (declare widget)
 (defclass widget []
   {:color :red})
