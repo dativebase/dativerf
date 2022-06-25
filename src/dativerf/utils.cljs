@@ -11,19 +11,31 @@
 
 (defn modify-form-keywords-recursive [modifier d]
   (walk/postwalk
-   (fn [x] (if (keyword? x)
-             (if-let [ns (namespace x)]
-               (keyword (modifier ns)
-                        (modifier (name x)))
-               (modifier x))
-             x))
+   (fn [x] (if (keyword? x) (modifier x) x))
    d))
 
+(defn ->kebab-case [kw]
+  (if-let [ns (namespace kw)]
+    (keyword (csk/->kebab-case ns)
+             (csk/->kebab-case (name kw)))
+    (csk/->kebab-case kw)))
+
+(defn ->snake-case [kw]
+  (if-let [ns (namespace kw)]
+    (keyword (csk/->snake_case_keyword ns)
+             (csk/->snake_case_keyword (name kw)))
+    (csk/->snake_case_keyword kw)))
+
 (def ->kebab-case-recursive
-  (partial modify-form-keywords-recursive csk/->kebab-case))
+  (partial modify-form-keywords-recursive ->kebab-case))
 
 (def ->snake-case-recursive
-  (partial modify-form-keywords-recursive csk/->snake_case_keyword))
+  (partial modify-form-keywords-recursive ->snake-case))
+
+(defn remove-namespace [kw] (-> kw name keyword))
+
+(def remove-namespaces-recursive
+  (partial modify-form-keywords-recursive remove-namespace))
 
 (defn ->pretty-json [x] (.stringify js/JSON (clj->js x) nil 2))
 

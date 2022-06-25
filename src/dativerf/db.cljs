@@ -55,6 +55,7 @@
    :new-form/speaker-comments ""
    :new-form/elicitation-method nil
    :new-form/tags #{}
+   :new-form/files #{}
    :new-form/syntactic-category nil
    :new-form/date-elicited nil
    :new-form/speaker nil
