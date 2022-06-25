@@ -75,6 +75,14 @@ Backlog
     the cache.
   - This applies to other OLD resources also, not just forms. For example, the
     OLD's application-settings cache needs to be invalidated also.
+- Support OLD orthographies and input validation client-side.
+
+  - This would mean running OLD-specific client-side validation on form
+    edit/create attempts based on the state of input validation in the
+    application settings as well as the state of the orthography resources. I
+    believe the current Dative does this client-side. For an entrypoint to the
+    OLD's validation of form transcriptions (when validation is set to 'Error'),
+    see https://github.com/dativebase/old-pyramid/blob/master/old/lib/schemata.py#L119
 
 - It should be possible to manage authentication more easily in DativeRF.
 

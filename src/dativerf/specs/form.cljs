@@ -1,7 +1,16 @@
 (ns dativerf.specs.form
   (:require [clojure.spec.alpha :as s]
+            [clojure.spec.gen.alpha :as gen]
+            [clojure.test.check.generators]
             [clojure.string :as str]
-            [cljs-time.format :as timef]))
+            [cljs-time.format :as timef]
+            [dativerf.db :as db]
+            [dativerf.utils :as utils]
+            [goog.string :as gstring]
+            [goog.string.format]))
+
+;; TODO: this ns is called form but there are specs for all types of resources
+;; in here.
 
 ;; General specs and specs that should be moved to their own namespaces
 
@@ -221,3 +230,133 @@
       (update :datetime-entered datetime-string?)
       (update :datetime-modified datetime-string?)
       (update :uuid uuid)))
+
+;; Write Form
+;;
+;; This is what a form map must look like on a write (POST or PUT) request.
+;; See the OLD's validation via FormSchema at
+;; https://github.com/dativebase/old-pyramid/blob/master/old/lib/schemata.py#L337
+;;
+;; - TODO: implement client-side validation of form transcription-type values
+;;   based on the state of the Orthographies resource and the Input Validation
+;;   settings of the current OLD's application settings.
+
+(s/def :write-translation/transcription string?)
+(s/def :write-translation/grammaticality
+  (s/with-gen string?
+    #(gen/elements ["" "*" "?" "#"])))
+(s/def :write-form/translation
+  (s/keys :req-un [:write-translation/transcription
+                   :write-translation/grammaticality]))
+;; :translations coll must contain at least one translation and at least one
+;; translation with a non-empty transcription value.
+(s/def :write-form/translations
+  (s/and (s/coll-of :write-form/translation :min-count 1)
+         (fn [ts] (> (->> ts
+                          (filter (fn [{:keys [transcription]}]
+                                    ((complement str/blank?)
+                                     (str/trim transcription))))
+                          count)
+                     0))))
+
+;; Write date-elicited values are date strings of format "MM/DD/YYYY"
+(s/def :write-form/date-elicited
+  (s/with-gen
+    (s/nilable
+     (s/and string?
+            (partial re-find
+                     ;; TODO: maybe not the best idea to use a regex here. Note
+                     ;; that it accepts invalid dates like "02/31/2022".
+                     #"^(0[1-9]|1[0-2])/(0[1-9]|[12][0-9]|3[01])/[0-9]{4}$")))
+    #(gen/fmap (fn [[m d y]]
+                 (str (gstring/format "%02d" m)
+                      "/"
+                      (gstring/format "%02d" d)
+                      "/"
+                      (gstring/format "%04d" y)))
+               (gen/tuple (gen/choose 1 12) (gen/choose 1 31) (gen/choose 1800 2200)))))
+
+(defn- max-length [l string] (<= (count string) l))
+
+(s/def :write-form/grammaticality
+  (s/with-gen string?
+    #(gen/elements ["" "*" "?" "#"])))
+
+(s/def :write-form/transcription (s/and string? (partial max-length 510)))
+(s/def :write-form/phonetic-transcription (s/and string? (partial max-length 510)))
+(s/def :write-form/narrow-phonetic-transcription (s/and string? (partial max-length 510)))
+(s/def :write-form/morpheme-break (s/and string? (partial max-length 510)))
+(s/def :write-form/morpheme-gloss (s/and string? (partial max-length 510)))
+(s/def :write-form/comments string?)
+(s/def :write-form/speaker-comments string?)
+(s/def :write-form/syntax (s/and string? (partial max-length 1023)))
+(s/def :write-form/semantics (s/and string? (partial max-length 1023)))
+(s/def :write-form/status #{"tested" "requires testing"})
+(s/def :write-form/elicitation-method (s/nilable :int/id))
+(s/def :write-form/syntactic-category (s/nilable :int/id))
+(s/def :write-form/speaker (s/nilable :int/id))
+(s/def :write-form/elicitor (s/nilable :int/id))
+(s/def :write-form/verifier (s/nilable :int/id))
+(s/def :write-form/source (s/nilable :int/id))
+(s/def :write-form/tag :int/id)
+(s/def :write-form/tags (s/coll-of :write-form/tag :distinct true))
+(s/def :write-form/file :int/id)
+(s/def :write-form/files (s/coll-of :write-form/file :distinct true))
+
+(defn- one-non-empty-transcription-type-value [form]
+  (> (->> (select-keys form
+                       [:transcription :morpheme-break :phonetic-transcription
+                        :narrow-phonetic-transcription])
+          vals
+          (filter (fn [v] ((complement str/blank?) (str/trim v))))
+          count)
+     0))
+
+(s/def ::write-form
+  (s/and
+   (s/keys :req-un [:write-form/narrow-phonetic-transcription
+                    :write-form/phonetic-transcription
+                    :write-form/grammaticality
+                    :write-form/transcription
+                    :write-form/morpheme-break
+                    :write-form/morpheme-gloss
+                    :write-form/translations
+                    :write-form/comments
+                    :write-form/speaker-comments
+                    :write-form/syntax
+                    :write-form/semantics
+                    :write-form/status
+                    :write-form/elicitation-method
+                    :write-form/syntactic-category
+                    :write-form/speaker
+                    :write-form/elicitor
+                    :write-form/verifier
+                    :write-form/source
+                    :write-form/tags
+                    :write-form/files
+                    :write-form/date-elicited])
+   one-non-empty-transcription-type-value))
+
+(comment
+
+  ;; Generate some write forms
+  (gen/sample (s/gen ::write-form))
+
+  ;; A valid form is recognized as valid
+  (nil?
+   (s/explain-data
+    ::write-form
+    (merge (utils/remove-namespaces-recursive db/default-new-form-state)
+           {:transcription "a"
+            :translations
+            [{:transcription "b" :grammaticality ""}]})))
+
+  ;; An valid form has explanatory data
+  (s/explain-data
+   ::write-form
+   (merge (utils/remove-namespaces-recursive db/default-new-form-state)
+          {:transcription "" ;; need a non-empty transcription-type form
+           :translations
+           [{:transcription "b" :grammaticality ""}]}))
+
+)
