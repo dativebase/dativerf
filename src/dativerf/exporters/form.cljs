@@ -69,7 +69,7 @@
 
 (defn p-els-for-grammaticalized-transcription
   ([form] (p-els-for-grammaticalized-transcription identity form))
-  ([formatter {:as tmp :keys [transcription grammaticality]}]
+  ([formatter {:keys [transcription grammaticality]}]
    (p-els-for-non-nil-val :v formatter {:v (str grammaticality transcription)})))
 
 (defn p-els-for-translations [{:keys [translations]}]
