@@ -1,13 +1,11 @@
 (ns dativerf.views.forms.settings
-  (:require [clojure.string :as str]
-            [dativerf.db :as db]
+  (:require [dativerf.db :as db]
             [dativerf.events :as events]
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
-            [reagent.ratom :as r]
             [re-frame.core :as re-frame]
-            [re-com.core :as re-com :refer [at]]))
+            [re-com.core :as re-com]))
 
 (defn header-center []
   [re-com/h-box

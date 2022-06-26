@@ -1,12 +1,9 @@
 (ns dativerf.views.profile
-  (:require
-    [re-frame.core :as re-frame]
-    [re-com.core :as re-com :refer [at]]
-    [dativerf.styles :as styles]
-    [dativerf.events :as events]
-    [dativerf.routes :as routes]
-    [dativerf.subs :as subs]
-    [dativerf.views.widgets :as widgets]))
+  (:require [re-frame.core :as re-frame]
+            [re-com.core :as re-com :refer [at]]
+            [dativerf.routes :as routes]
+            [dativerf.subs :as subs]
+            [dativerf.views.widgets :as widgets]))
 
 (defn user-title []
       [re-com/title

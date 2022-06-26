@@ -359,7 +359,7 @@
         (->> date-str reverse (drop 11) reverse (apply str))
         date-str))))
 
-(defn igt-form-buttons [{:as form form-id :uuid}]
+(defn igt-form-buttons [form]
   [re-com/h-box
    :src (at)
    :class (styles/default)
@@ -375,9 +375,9 @@
 
 (defn igt-form-export-interface [{:as form form-id :uuid}]
   (when @(re-frame/subscribe [::subs/form-export-interface-visible? form-id])
-    (let [{:as e :keys [efn]}
-          (form-exporter/export @(re-frame/subscribe [::subs/form-export-format
-                                                form-id]))
+    (let [{:keys [efn]} (form-exporter/export
+                         @(re-frame/subscribe [::subs/form-export-format
+                                               form-id]))
           export-string (efn form)]
       [re-com/v-box
        :class (styles/export-interface)
