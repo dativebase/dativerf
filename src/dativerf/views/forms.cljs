@@ -154,7 +154,9 @@
   [re-com/md-circle-icon-button
    :md-icon-name "zmdi-settings"
    :size :smaller
-   :tooltip "form settings"
+   :tooltip (if @(re-frame/subscribe [::subs/forms-settings-interface-visible?])
+              "hide form settings"
+              "show form settings")
    :on-click (fn [_] (re-frame/dispatch
                       [::events/user-clicked-form-settings-button]))])
 

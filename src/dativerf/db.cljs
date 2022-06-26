@@ -1,11 +1,5 @@
 (ns dativerf.db)
 
-(def test-sample-olds
-  [{:name "Blackfoot OLD"
-    :url "https://app.onlinelinguisticdatabase.org/blaold"}
-   {:name "Okanagan OLD"
-    :url "https://app.onlinelinguisticdatabase.org/okaold"}])
-
 (def always-visible-form-fields
   #{:form/transcription
     :form/grammaticality
@@ -103,16 +97,14 @@
        ;; routing state
        :forms/previous-route nil
        :forms/previous-browse-route nil
-       :old-settings/previous-route nil}
+       :old-settings/previous-route nil
+       ;; new form data
+       :new-form-state :dativerf.fsms.new-form/ready
+       :new-form nil
+       :new-form-invalid-fields #{}}
       (merge default-new-form-state)))
 
 (defn default-form-view-state [{:as _db :keys [forms/expanded?]}]
   {:expanded? expanded?
    :export-interface-visible? false
    :export-format :plain-text})
-
-(defn old [{:keys [old olds]}]
-  (->> olds (filter (fn [{:keys [url]}] (= old url))) first))
-
-(defn old-slug [db] (:slug (old db)))
-(defn old-name [db] (:name (old db)))
