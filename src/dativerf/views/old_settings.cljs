@@ -1,8 +1,8 @@
 (ns dativerf.views.old-settings
   (:require [re-frame.core :as re-frame]
             [re-com.core :as re-com :refer [at]]
-            [dativerf.db :as db]
             [dativerf.events :as events]
+            [dativerf.models.old :as old-model]
             [dativerf.routes :as routes]
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
@@ -11,7 +11,7 @@
 (defn- title []
   (let [old-id @(re-frame/subscribe [::subs/old])
         olds @(re-frame/subscribe [::subs/olds])
-        old-name (db/old-name {:old old-id :olds olds})]
+        old-name (old-model/name* {:old old-id :olds olds})]
     [re-com/title
      :src   (at)
      :label (str old-name " Settings")

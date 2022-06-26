@@ -1,8 +1,8 @@
 (ns dativerf.views
   (:require [re-frame.core :as re-frame]
             [re-com.core :as re-com :refer [at]]
-            [dativerf.db :as db]
             [dativerf.events :as events]
+            [dativerf.models.old :as old-model]
             [dativerf.routes :as routes]
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
@@ -17,7 +17,7 @@
   (let [user @(re-frame/subscribe [::subs/user])
         old-id @(re-frame/subscribe [::subs/old])
         olds @(re-frame/subscribe [::subs/olds])
-        old-name (db/old-name {:old old-id :olds olds})
+        old-name (old-model/name* {:old old-id :olds olds})
         title (if (and user old-name)
                 (str "Dative: " old-name)
                 "Dative")]
@@ -61,7 +61,7 @@
 
 (defn menu []
   (let [user @(re-frame/subscribe [::subs/user])
-        {:as route :keys [handler]} @(re-frame/subscribe [::subs/active-route])
+        {:keys [handler]} @(re-frame/subscribe [::subs/active-route])
         tab (get utils/handler->tab handler handler)
         old @(re-frame/subscribe [::subs/old])
         olds @(re-frame/subscribe [::subs/olds])
@@ -81,7 +81,6 @@
               forms-previous-route @(re-frame/subscribe [::subs/forms-previous-route])
               old-settings-previous-route @(re-frame/subscribe
                                             [::subs/old-settings-previous-route])
-              handler (get utils/tab->handler tab-id tab-id)
               route
               (cond (and (= :forms tab-id) forms-previous-route)
                     forms-previous-route
@@ -91,7 +90,7 @@
                     (cond-> {:handler (get utils/tab->handler tab-id tab-id)}
                       (:authenticated? tab-map)
                       (assoc :route-params
-                             {:old (db/old-slug {:old old :olds olds})})))]
+                             {:old (old-model/slug {:old old :olds olds})})))]
           [::events/navigate route])))]))
 
 (defn main-tab []

@@ -1,12 +1,12 @@
 (ns dativerf.subs
   (:require
    [re-frame.core :as re-frame]
-   [dativerf.db :as db]
-   [dativerf.fsms.login :as login]))
+   [dativerf.fsms.login :as login]
+   [dativerf.models.old :as old-model]))
 
 (re-frame/reg-sub ::name (fn [db] (:name db)))
 (re-frame/reg-sub ::old (fn [db] (:old db)))
-(re-frame/reg-sub ::old-slug (fn [db] (-> db db/old :slug)))
+(re-frame/reg-sub ::old-slug (fn [db] (old-model/slug db)))
 (re-frame/reg-sub ::olds (fn [db] (->> db :olds (sort-by :name))))
 (re-frame/reg-sub ::active-route (fn [db _] (:active-route db)))
 (re-frame/reg-sub ::re-pressed-example (fn [db _] (:re-pressed-example db)))
@@ -95,6 +95,12 @@
  :login/logged-in?
  :<- [:login/state]
  (fn [login-state _] (= login-state ::login/user-is-authenticated)))
+
+(re-frame/reg-sub :new-form/state (fn [db _] (:new-form-state db)))
+
+(re-frame/reg-sub
+ :new-form/invalid-field?
+ (fn [db [_ field]] (boolean (some #{field} (:new-form-invalid-fields db)))))
 
 ;; Forms Browse Navigation Subscriptions
 (re-frame/reg-sub ::forms-items-per-page

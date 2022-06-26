@@ -5,7 +5,9 @@
    [dativerf.db :as db]
    [dativerf.fsms :as fsms]
    [dativerf.fsms.login :as login]
-   [dativerf.models.old :as models-old]
+   [dativerf.fsms.new-form :as new-form-fsm]
+   [dativerf.models.old :as old-model]
+   [dativerf.models.form :as form-model]
    [dativerf.old :as old]
    [dativerf.specs.form :as form-specs]
    [dativerf.utils :as utils]
@@ -158,7 +160,7 @@
 (re-frame/reg-event-db
  ::olds-fetched
  (fn-traced [db [_ olds]]
-            (assoc db :olds (models-old/olds-response->olds olds))))
+            (assoc db :olds (old-model/olds-response->olds olds))))
 
 (re-frame/reg-event-db
  ::olds-not-fetched
@@ -224,7 +226,7 @@
                    (if (:user db)
                      [::navigate
                       {:handler :logout
-                       :route-params {:old (db/old-slug db)}}]
+                       :route-params {:old (old-model/slug db)}}]
                      [::navigate {:handler :login}])]]}))
 
 (re-frame/reg-event-fx
@@ -234,7 +236,7 @@
                               [::navigate
                                (or (:forms/previous-route db)
                                    {:handler :forms-last-page
-                                    :route-params {:old (db/old-slug db)}})]]]})))
+                                    :route-params {:old (old-model/slug db)}})]]]})))
 
 (re-frame/reg-event-fx
  :shortcut/files
@@ -242,7 +244,7 @@
             (when user {:fx [[:dispatch
                               [::navigate
                                {:handler :files
-                                :route-params {:old (db/old-slug db)}}]]]})))
+                                :route-params {:old (old-model/slug db)}}]]]})))
 
 (re-frame/reg-event-fx
  :shortcut/collections
@@ -250,7 +252,7 @@
             (when user {:fx [[:dispatch
                               [::navigate
                                {:handler :collections
-                                :route-params {:old (db/old-slug db)}}]]]})))
+                                :route-params {:old (old-model/slug db)}}]]]})))
 
 (re-frame/reg-event-fx
  :shortcut/old-settings
@@ -259,21 +261,49 @@
                               [::navigate
                                (or (:old-settings/previous-route db)
                                    {:handler :old-settings
-                                    :route-params {:old (db/old-slug db)}})]]]})))
+                                    :route-params {:old (old-model/slug db)}})]]]})))
+
+;; New Form Form Events
+
+(defn- cache-new-form [db]
+  (let [new-form (form-model/new-form db)]
+    (assoc db
+           :new-form new-form
+           :new-form-invalid-fields (form-model/new-form-invalid-fields
+                                     new-form))))
+
+(defn- invalidate-new-form-cache [db]
+    (assoc db
+           :new-form nil
+           :new-form-invalid-fields #{}))
+
+(defn-traced transition-new-form-fsm [db event]
+  (fsms/update-state db new-form-fsm/state-machine :new-form-state event))
+
+(defn-traced transition-new-form-fsm-db-handler [db [event]]
+  (cond-> db
+    :always
+    (transition-new-form-fsm event)
+    (= ::new-form-data-invalid event)
+    cache-new-form))
+
+(doseq [event [::new-form-data-invalid
+               ::initiated-form-creation
+               ::no-op]]
+  (re-frame/reg-event-db event transition-new-form-fsm-db-handler))
 
 ;; Login Page/Form Events
 
 (defn-traced transition-login-fsm [db event]
   (fsms/update-state db login/state-machine :login/state event))
 
-(defn-traced transition-login-fsm-db-handler [db [event _]]
+(defn-traced transition-login-fsm-db-handler [db [event]]
   (transition-login-fsm db event))
 
-(re-frame/reg-event-db ::username-invalidated-login
-                       transition-login-fsm-db-handler)
-(re-frame/reg-event-db ::password-invalidated-login
-                       transition-login-fsm-db-handler)
-(re-frame/reg-event-db ::no-op transition-login-fsm-db-handler)
+(doseq [event [::username-invalidated-login
+               ::password-invalidated-login
+               ::no-op]]
+  (re-frame/reg-event-db event transition-login-fsm-db-handler))
 
 (re-frame/reg-event-db
  ::user-selected-visible-form-fields
@@ -321,7 +351,7 @@
             {:fx [[:dispatch [::navigate
                               (or (:forms/previous-browse-route db)
                                   {:handler :forms-last-page
-                                   :route-params {:old (db/old-slug db)}})]]]}))
+                                   :route-params {:old (old-model/slug db)}})]]]}))
 
 (re-frame/reg-event-fx
  ::user-clicked-login
@@ -364,7 +394,7 @@
               {:db (fsms/update-state db login/state-machine :login/state event)
                :http-xhrio
                (assoc post-request
-                      :uri (old/login-authenticate (db/old db))
+                      :uri (old/login-authenticate (old-model/old db))
                       :params {:username username :password password}
                       :on-success [::server-authenticated]
                       :on-failure [::server-not-authenticated])})))
@@ -376,16 +406,50 @@
              :http-xhrio
              (assoc get-request
                     :method :get
-                    :uri (old/login-logout (db/old db))
+                    :uri (old/login-logout (old-model/old db))
                     :on-success [::server-deauthenticated]
                     :on-failure [::server-not-deauthenticated])}))
+
+(re-frame/reg-event-fx
+ ::initiated-form-creation
+ (fn-traced [{:keys [db]} [event]]
+            {:db (transition-new-form-fsm db event)
+             ;; TODO uncomment this later
+             #_#_:http-xhrio
+             (assoc post-request
+                    :uri (old/forms (old-model/old db))
+                    :params new-form ;; TODO snake_case-ify
+                    :on-success [::form-created]
+                    :on-failure [::form-not-created])
+             ;; TODO remove this dispatch
+             :dispatch [::form-not-created {:pretend-server-response true}]}))
+
+(re-frame/reg-event-fx
+ ::form-created
+ (fn-traced [{:keys [db]} [event _form]]
+            {:db (-> db
+                     (transition-new-form-fsm event)
+                     invalidate-new-form-cache
+                     (merge db/default-new-form-state))
+             :fx [[:dispatch [::navigate
+                              {:handler :forms-last-page
+                               :route-params
+                               {:old (old-model/slug db)}}]]]}))
+
+(re-frame/reg-event-db
+ ::form-not-created
+ (fn-traced [db [event server-response]]
+            (println "form was not created; server response:")
+            (cljs.pprint/pprint server-response)
+            ;; TODO: associate server-side validation errors into db somehow ...
+            (transition-new-form-fsm db event)))
 
 (re-frame/reg-event-fx
  ::fetch-form
  (fn-traced [{:keys [db]} [_ form-id]]
             {:http-xhrio
              (assoc get-request
-                    :uri (old/form (db/old db) form-id)
+                    :uri (old/form (old-model/old db) form-id)
                     :on-success [::form-fetched]
                     :on-failure [::form-not-fetched form-id])}))
 
@@ -394,7 +458,7 @@
  (fn-traced [{:keys [db]} [_ page items-per-page]]
             {:http-xhrio
              (assoc get-request
-                    :uri (-> db db/old old/forms)
+                    :uri (-> db old-model/old old/forms)
                     :params {:page page
                              :items_per_page items-per-page}
                     :on-success [::forms-page-fetched]
@@ -413,7 +477,7 @@
                   items-per-page (:forms-paginator/items-per-page db)]
               {:http-xhrio
                (assoc get-request
-                      :uri (-> db db/old old/forms)
+                      :uri (-> db old-model/old old/forms)
                       :params {:page page
                                :items_per_page items-per-page}
                       :on-success [::forms-first-page-for-last-page-fetched]
@@ -432,33 +496,33 @@
          items-per-page (:forms-paginator/items-per-page paginator)
          route {:handler :forms-page
                 :route-params
-                {:old (db/old-slug db)
+                {:old (old-model/slug db)
                  :items-per-page items-per-page
-                 :page last-page}}]
-     (let [fx {:db (-> db
-                       (update-in [:old-states (:old db) :forms] merge forms)
-                       (update-in [:old-states (:old db) :forms/view-state]
-                                  merge forms-view-state)
-                       (merge paginator))}]
-       (if (= 1 last-page)
-         fx
-         (assoc fx :fx [[:dispatch [::navigate route]]]))))))
+                 :page last-page}}
+         fx {:db (-> db
+                     (update-in [:old-states (:old db) :forms] merge forms)
+                     (update-in [:old-states (:old db) :forms/view-state]
+                                merge forms-view-state)
+                     (merge paginator))}]
+     (if (= 1 last-page)
+       fx
+       (assoc fx :fx [[:dispatch [::navigate route]]])))))
 
 (re-frame/reg-event-fx
  ::fetch-new-form-data
  (fn-traced [{:keys [db]} _]
             {:http-xhrio
              (assoc get-request
-                    :uri (old/forms-new (db/old db))
+                    :uri (old/forms-new (old-model/old db))
                     :on-success [::forms-new-fetched]
                     :on-failure [::forms-new-not-fetched])}))
 
 (re-frame/reg-event-fx
  ::fetch-applicationsettings
- (fn-traced [{:keys [db]} [_ form-id]]
+ (fn-traced [{:keys [db]} _]
             {:http-xhrio
              (assoc get-request
-                    :uri (old/applicationsettings (db/old db))
+                    :uri (old/applicationsettings (old-model/old db))
                     :on-success [::applicationsettings-fetched]
                     :on-failure [::applicationsettings-not-fetched])}))
 
@@ -476,7 +540,7 @@
                :fx [[:dispatch [::navigate
                                 {:handler :forms-last-page
                                  :route-params
-                                 {:old (db/old-slug db)}}]]]}
+                                 {:old (old-model/slug db)}}]]]}
               {:db (-> db
                        (fsms/update-state login/state-machine :login/state
                                           ::server-not-authenticated)
@@ -609,7 +673,7 @@
                                           items-per-page))
                   route {:handler :forms-page
                          :route-params
-                         {:old (db/old-slug db)
+                         {:old (old-model/slug db)
                           :items-per-page items-per-page
                           :page current-page}}]
               {:db (assoc db
@@ -626,17 +690,21 @@
         :when (not= k :new-form/translations)]
   (re-frame/reg-event-db
    (keyword "dativerf.events" (str "user-changed-new-form-" (name k)))
-   (fn-traced [db [_ v]] (assoc db k v))))
+   (fn-traced [db [_ v]]
+              (-> db
+                  (assoc k v)
+                  (transition-new-form-fsm ::user-changed-new-form-data)
+                  invalidate-new-form-cache))))
 
-(re-frame/reg-event-db
- ::user-changed-new-form-translation-transcription
- (fn-traced [db [_ index transcription]]
-            (assoc-in db [:new-form/translations index :transcription] transcription)))
-
-(re-frame/reg-event-db
- ::user-changed-new-form-translation-grammaticality
- (fn-traced [db [_ index grammaticality]]
-            (assoc-in db [:new-form/translations index :grammaticality] grammaticality)))
+(doseq [k [:transcription :grammaticality]]
+  (re-frame/reg-event-db
+   (keyword "dativerf.events"
+            (str "user-changed-new-form-translation-" (name k)))
+   (fn-traced [db [_ i v]]
+              (-> db
+                  (assoc-in [:new-form/translations i k] v)
+                  (transition-new-form-fsm ::user-changed-new-form-data)
+                  invalidate-new-form-cache))))
 
 (re-frame/reg-event-db
  ::user-clicked-add-new-translation-button
@@ -660,12 +728,14 @@
 (re-frame/reg-event-db
  ::user-clicked-help-creating-new-form
  ;; TODO
- (fn-traced [db _]))
+ (fn-traced [_db _]))
 
-(re-frame/reg-event-db
+(re-frame/reg-event-fx
  ::user-clicked-create-new-form-button
- ;; TODO
- (fn-traced [db _] (println "You wanna create a form, right?")))
+ (fn-traced [{:keys [db]} _]
+            {:dispatch (if (form-specs/write-form-valid? (form-model/new-form db))
+                         [::initiated-form-creation]
+                         [::new-form-data-invalid])}))
 
 (register-form-toggler
  ::user-clicked-export-form-button

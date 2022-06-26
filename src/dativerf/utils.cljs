@@ -2,7 +2,9 @@
   (:require [camel-snake-kebab.core :as csk]
             [cljs.pprint :as pprint]
             [clojure.string :as str]
-            [clojure.walk :as walk]))
+            [clojure.walk :as walk]
+            [goog.string :as gstring]
+            [goog.string.format]))
 
 (defn commatize [number]
   (pprint/cl-format nil "~,,',:D" number))
@@ -41,6 +43,11 @@
 
 (defn set-kw-ns [ns kw] (->> kw name (keyword ns)))
 
+(defn select-keys-by-ns [ns m]
+  (->> m
+       (filter (fn [[k _]] (and (keyword? k) (= ns (namespace k)))))
+       (into {})))
+
 (def set-kw-ns-to-form (partial set-kw-ns "form"))
 
 (def handler->tab
@@ -60,3 +67,11 @@
 
 (defn old-settings-route? [{:keys [handler]}]
   (= :old-settings (handler handler->tab handler)))
+
+(defn goog-date-utc-date-time->mm-dd-yyyy-string [dt]
+  (str
+   (gstring/format "%02d" (inc (.getMonth dt)))
+   "/"
+   (gstring/format "%02d" (.getDate dt))
+   "/"
+   (gstring/format "%02d" (.getYear dt))))

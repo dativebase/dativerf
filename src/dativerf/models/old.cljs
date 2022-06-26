@@ -24,3 +24,9 @@
              :url url
              :slug (url->slug url)})
           olds)))
+
+(defn old [{:keys [old olds]}]
+  (->> olds (filter (fn [{:keys [url]}] (= old url))) first))
+
+(defn slug [db] (:slug (old db)))
+(defn name* [db] (:name (old db)))

@@ -337,6 +337,9 @@
                     :write-form/date-elicited])
    one-non-empty-transcription-type-value))
 
+(def write-form-valid? (partial s/valid? ::write-form))
+(def write-form-explain-data (partial s/explain-data ::write-form))
+
 (comment
 
   ;; Generate some write forms
@@ -358,5 +361,14 @@
           {:transcription "" ;; need a non-empty transcription-type form
            :translations
            [{:transcription "b" :grammaticality ""}]}))
+
+  (s/explain-data
+   ::write-form
+   (merge (utils/remove-namespaces-recursive db/default-new-form-state)
+          {:transcription 2
+           :translations
+           [{:transcription "b" :grammaticality ""}]}))
+
+
 
 )

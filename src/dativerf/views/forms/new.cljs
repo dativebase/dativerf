@@ -1,12 +1,14 @@
 (ns dativerf.views.forms.new
   (:require [clojure.string :as str]
             [dativerf.events :as events]
+            [dativerf.fsms.new-form :as new-form-fsm]
+            [dativerf.models.form :as form-model]
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
             [reagent.ratom :as r]
             [re-frame.core :as re-frame]
-            [re-com.core :as re-com :refer [at]]))
+            [re-com.core :as re-com]))
 
 (def statuses
   (mapv (fn [x] {:id x :name x})
@@ -94,71 +96,85 @@
       :child (or (and model (model-label model)) "")]]))
 
 (defn transcription [grammaticalities]
-  [re-com/h-box
-   :gap "10px"
-   :children
-   [[label :new-form/transcription]
-    [re-com/single-dropdown
-     :choices (for [g grammaticalities] {:id g :label g})
-     :width "50px"
-     :model @(re-frame/subscribe [:new-form/grammaticality])
-     :on-change (fn [grammaticality]
-                  (re-frame/dispatch
-                   [::events/user-changed-new-form-grammaticality
-                    grammaticality]))]
-    [re-com/input-text
-     :change-on-blur? false
-     :placeholder "transcription"
-     :width "500px"
-     :model @(re-frame/subscribe [:new-form/transcription])
-     :on-change
-     (fn [transcription] (re-frame/dispatch-sync
-                          [::events/user-changed-new-form-transcription
-                           transcription]))]]])
+  (let [invalid? @(re-frame/subscribe [:new-form/invalid-field? :transcription])]
+    [re-com/h-box
+     :gap "10px"
+     :children
+     [[label :new-form/transcription]
+      [re-com/single-dropdown
+       :choices (for [g grammaticalities] {:id g :label g})
+       :width "50px"
+       :model @(re-frame/subscribe [:new-form/grammaticality])
+       :on-change (fn [grammaticality]
+                    (re-frame/dispatch
+                     [::events/user-changed-new-form-grammaticality
+                      grammaticality]))]
+      [re-com/input-text
+       :change-on-blur? false
+       :placeholder "transcription"
+       :width "500px"
+       :model @(re-frame/subscribe [:new-form/transcription])
+       :status (when invalid? :error)
+       :status-icon? invalid?
+       :status-tooltip
+       (when invalid?
+         (:transcription form-model/new-form-field-validation-declarations
+                         "invalid"))
+       :on-change
+       (fn [transcription] (re-frame/dispatch-sync
+                            [::events/user-changed-new-form-transcription
+                             transcription]))]]]))
 
 (defn translation [index grammaticalities]
-  [re-com/h-box
-   :gap "10px"
-   :children
-   [[label (when (zero? index) :new-form/translations)]
-    [re-com/single-dropdown
-     :choices (for [g grammaticalities] {:id g :label g})
-     :width "50px"
-     :model @(re-frame/subscribe [:new-form/translation-grammaticality index])
-     :on-change (fn [grammaticality]
-                  (re-frame/dispatch
-                   [::events/user-changed-new-form-translation-grammaticality
-                    index grammaticality]))]
-    [re-com/input-text
-     :change-on-blur? false
-     :placeholder "translation"
-     :width "460px"
-     :model @(re-frame/subscribe [:new-form/translation-transcription index])
-     :on-change
-     (fn [transcription]
-       (re-frame/dispatch-sync
-        [::events/user-changed-new-form-translation-transcription
-         index transcription]))]
-    [re-com/box
-     :class (styles/default)
-     :child
-     (if (zero? index)
-       [re-com/md-circle-icon-button
-        :md-icon-name "zmdi-plus"
-        :size :smaller
-        :tooltip "add another translation"
-        :on-click
-        (fn [_]
-          (re-frame/dispatch
-           [::events/user-clicked-add-new-translation-button]))]
-       [re-com/md-circle-icon-button
-        :md-icon-name "zmdi-minus"
-        :size :smaller
-        :tooltip "remove this translation"
-        :on-click
-        (fn [_]
-          (re-frame/dispatch
-           [::events/user-clicked-remove-translation-button index]))])]]])
+  (let [invalid? @(re-frame/subscribe [:new-form/invalid-field? :translations])]
+    [re-com/h-box
+     :gap "10px"
+     :children
+     [[label (when (zero? index) :new-form/translations)]
+      [re-com/single-dropdown
+       :choices (for [g grammaticalities] {:id g :label g})
+       :width "50px"
+       :model @(re-frame/subscribe [:new-form/translation-grammaticality index])
+       :on-change (fn [grammaticality]
+                    (re-frame/dispatch
+                     [::events/user-changed-new-form-translation-grammaticality
+                      index grammaticality]))]
+      [re-com/input-text
+       :change-on-blur? false
+       :placeholder "translation"
+       :width "460px"
+       :model @(re-frame/subscribe [:new-form/translation-transcription index])
+       :status (when invalid? :error)
+       :status-icon? invalid?
+       :status-tooltip
+       (when invalid?
+         (:translations form-model/new-form-field-validation-declarations
+                        "invalid"))
+       :on-change
+       (fn [transcription]
+         (re-frame/dispatch-sync
+          [::events/user-changed-new-form-translation-transcription
+           index transcription]))]
+      [re-com/box
+       :class (styles/default)
+       :child
+       (if (zero? index)
+         [re-com/md-circle-icon-button
+          :md-icon-name "zmdi-plus"
+          :size :smaller
+          :tooltip "add another translation"
+          :on-click
+          (fn [_]
+            (re-frame/dispatch
+             [::events/user-clicked-add-new-translation-button]))]
+         [re-com/md-circle-icon-button
+          :md-icon-name "zmdi-minus"
+          :size :smaller
+          :tooltip "remove this translation"
+          :on-click
+          (fn [_]
+            (re-frame/dispatch
+             [::events/user-clicked-remove-translation-button index]))])]]]))
 
 (defn translations [grammaticalities]
   [re-com/v-box
@@ -178,17 +194,24 @@
 (defn text-input [model event]
   (when (some #{(utils/set-kw-ns-to-form model)}
               @(re-frame/subscribe [::subs/visible-form-fields]))
-    [re-com/h-box
-     :gap "10px"
-     :children
-     [[label model]
-      [re-com/input-text
-       :change-on-blur? false
-       :placeholder (model-placeholder model)
-       :width "560px"
-       :model @(re-frame/subscribe [model])
-       :on-change
-       (fn [val] (re-frame/dispatch-sync [event val]))]]]))
+    (let [field (utils/remove-namespace model)
+          invalid? @(re-frame/subscribe [:new-form/invalid-field? field])]
+      [re-com/h-box
+       :gap "10px"
+       :children
+       [[label model]
+        [re-com/input-text
+         :change-on-blur? false
+         :placeholder (model-placeholder model)
+         :width "560px"
+         :model @(re-frame/subscribe [model])
+         :status (when invalid? :error)
+         :status-icon? invalid?
+         :status-tooltip
+         (when invalid? (field form-model/new-form-field-validation-declarations
+                               "invalid"))
+         :on-change
+         (fn [val] (re-frame/dispatch-sync [event val]))]]])))
 
 (defn toggle-secondary-inputs-button []
   [re-com/md-circle-icon-button
@@ -260,6 +283,13 @@
     [header-center]
     [header-right]]])
 
+(defn invalid-warning []
+  (when (= ::new-form-fsm/invalid @(re-frame/subscribe [:new-form/state]))
+    [re-com/alert-box
+     :alert-type :danger
+     :heading "Invalid Form"
+     :body form-model/new-form-validation-message]))
+
 (defn inputs [{:keys [grammaticalities]}]
   [re-com/v-box
    :class (str (styles/v-box-gap-with-nils) " " (styles/objlang))
@@ -324,7 +354,14 @@
        :on-change (fn [date-elicited]
                     (re-frame/dispatch
                      [::events/user-changed-new-form-date-elicited
-                      date-elicited]))]]]))
+                      date-elicited]))]
+      [re-com/md-circle-icon-button
+       :md-icon-name "zmdi-delete"
+       :size :smaller
+       :tooltip "remove date elicited"
+       :on-click
+       (fn [_]
+         (re-frame/dispatch [::events/user-changed-new-form-date-elicited nil]))]]]))
 
 (defn- person->name [person]
   (str (:first-name person) " " (:last-name person)))
@@ -373,6 +410,8 @@
    [re-com/button
     :label "Save"
     :tooltip "create this new form"
+    :disabled? (not= :dativerf.fsms.new-form/ready
+                     @(re-frame/subscribe [:new-form/state]))
     :on-click (fn [_e] (re-frame/dispatch
                         [::events/user-clicked-create-new-form-button]))]])
 
@@ -399,6 +438,7 @@
        :class (styles/form-sub-interface)
        :children
        [[header]
+        [invalid-warning]
         [inputs forms-new-data]
         [secondary-inputs forms-new-data]
         [footer]]]
