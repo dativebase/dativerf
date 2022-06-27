@@ -118,6 +118,8 @@
 (re-frame/reg-sub ::forms-last-form
                   (fn [db _] (:forms-paginator/last-form db)))
 
+(re-frame/reg-sub ::forms-force-reload?
+                  (fn [db _] (:forms/force-reload? db)))
 (re-frame/reg-sub ::forms-previous-route
                   (fn [db _] (:forms/previous-route db)))
 (re-frame/reg-sub ::forms-labels-on?

@@ -326,12 +326,10 @@
    :children
    [(when (seq narrow-phonetic-transcription)
       [igt-transcription {:attr :narrow-phonetic-transcription
-                          :transcription narrow-phonetic-transcription
-                          :grammaticality grammaticality}])
+                          :transcription narrow-phonetic-transcription}])
     (when (seq phonetic-transcription)
       [igt-transcription {:attr :phonetic-transcription
-                          :transcription phonetic-transcription
-                          :grammaticality grammaticality}])
+                          :transcription phonetic-transcription}])
     [igt-transcription {:attr :transcription
                         :transcription transcription
                         :grammaticality grammaticality}]
