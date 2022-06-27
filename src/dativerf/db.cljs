@@ -94,6 +94,7 @@
        :forms/export-format :plain-text
        :forms/new-form-interface-visible? false
        :forms/new-form-secondary-fields-visible? false
+       :forms/force-reload? false
        ;; routing state
        :forms/previous-route nil
        :forms/previous-browse-route nil

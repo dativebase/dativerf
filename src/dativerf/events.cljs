@@ -101,7 +101,7 @@
     {:forms forms
      :forms-view-state forms-view-state
      :paginator {:forms-paginator/items-per-page items-per-page
-                 :forms-paginator/current-page-forms (mapv :uuid (vals forms))
+                 :forms-paginator/current-page-forms (mapv :uuid (sort-by :id (vals forms)))
                  :forms-paginator/current-page current-page
                  :forms-paginator/last-page last-page
                  :forms-paginator/count count
@@ -193,7 +193,11 @@
                              [[:shortcut/old-settings]
                               [{:keyCode 188
                                 :ctrlKey true
-                                :shiftKey true}]]] ;; C-,
+                                :shiftKey true}]] ;; C-,
+                             [[:shortcut/new-form]
+                              [{:keyCode 65
+                                :ctrlKey true
+                                :shiftKey true}]]] ;; C-A
                 :clear-keys
                 [[{:keyCode 27}]]
 
@@ -203,7 +207,8 @@
                  {:keyCode 66 :ctrlKey true :shiftKey true}   ;; C-B
                  {:keyCode 70 :ctrlKey true :shiftKey true}   ;; C-F
                  {:keyCode 73 :ctrlKey true :shiftKey true}   ;; C-I
-                 {:keyCode 188 :ctrlKey true :shiftKey true}] ;; C-,
+                 {:keyCode 188 :ctrlKey true :shiftKey true}  ;; C-,
+                 {:keyCode 65 :ctrlKey true :shiftKey true}]  ;; C-A
                 }]}))
 
 ;; Cf. https://day8.github.io/re-frame/FAQs/FocusOnElement/
@@ -237,6 +242,11 @@
                                (or (:forms/previous-route db)
                                    {:handler :forms-last-page
                                     :route-params {:old (old-model/slug db)}})]]]})))
+
+(re-frame/reg-event-fx
+ :shortcut/new-form
+ (fn-traced [{{:keys [user]} :db} _]
+            (when user {:fx [[:dispatch [::user-clicked-new-form-button]]]})))
 
 (re-frame/reg-event-fx
  :shortcut/files
@@ -288,7 +298,6 @@
     cache-new-form))
 
 (doseq [event [::new-form-data-invalid
-               ::initiated-form-creation
                ::no-op]]
   (re-frame/reg-event-db event transition-new-form-fsm-db-handler))
 
@@ -414,23 +423,27 @@
  ::initiated-form-creation
  (fn-traced [{:keys [db]} [event]]
             {:db (transition-new-form-fsm db event)
-             ;; TODO uncomment this later
-             #_#_:http-xhrio
+             :http-xhrio
              (assoc post-request
                     :uri (old/forms (old-model/old db))
-                    :params new-form ;; TODO snake_case-ify
+                    :params (utils/->snake-case-recursive (form-model/new-form
+                                                           db))
                     :on-success [::form-created]
-                    :on-failure [::form-not-created])
-             ;; TODO remove this dispatch
-             :dispatch [::form-not-created {:pretend-server-response true}]}))
+                    :on-failure [::form-not-created])}))
+
+(re-frame/reg-event-db
+ ::turn-off-force-forms-reload
+ (fn-traced [db _] (assoc db :forms/force-reload? false)))
 
 (re-frame/reg-event-fx
  ::form-created
- (fn-traced [{:keys [db]} [event _form]]
+ (fn-traced [{:keys [db]} [event _response]]
             {:db (-> db
                      (transition-new-form-fsm event)
                      invalidate-new-form-cache
-                     (merge db/default-new-form-state))
+                     (merge db/default-new-form-state)
+                     (assoc :forms/force-reload? true))
+             ;; TODO: Is always navigating to the last page of forms the best behaviour?
              :fx [[:dispatch [::navigate
                               {:handler :forms-last-page
                                :route-params
@@ -441,6 +454,8 @@
  (fn-traced [db [event server-response]]
             (println "form was not created; server response:")
             (cljs.pprint/pprint server-response)
+            ;; TODO: distinguish a) validation failure from server from more
+            ;; general failure (e.g., 500 response.)
             ;; TODO: associate server-side validation errors into db somehow ...
             (transition-new-form-fsm db event)))
 

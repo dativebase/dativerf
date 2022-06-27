@@ -19,6 +19,9 @@ In Progress
 Ready
 --------------------------------------------------------------------------------
 
+- The forms browse page should show a spinner only in the "enumerated forms"
+  component when a fetch is in progress. There is no need to hide the "form add"
+  or "forms paginator" interfaces during these loads (I think).
 
 
 Backlog
@@ -42,6 +45,7 @@ Backlog
     want configuration.
 
 - Add buttons to "New Form" interface to add new resources in real time. Resources:
+
   - elicitation method
   - syntactic category
   - tag
@@ -59,6 +63,17 @@ Backlog
    - When a form is re-fetched from the server, its Dative-internal state is
      reset to the default. This should not happen. We should merge the current
      state on top of the defaults.
+
+- USing the "TAB" key to navigate through the "New Form" field doesn't work very
+  well.
+
+  - Dropdowns are not highlighted as focused
+  - You can't TAB from the "status" select to the "Save" button, which annoys
+    me. I couldn't fix this easily with {:attr {:tab-index "N"}}.
+  - Note: Re-com explicitly doesn't handle "Focus management". See
+    https://github.com/day8/re-com#the-missing-components
+  - Maybe this could be done manually with clever use of key press/down events,
+    but that seems like little ROI.
 
 - Successful authentication should result in the home page of the authenticated
   OLD being rendered under the home tab.

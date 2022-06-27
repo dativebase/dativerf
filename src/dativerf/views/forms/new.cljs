@@ -14,6 +14,11 @@
   (mapv (fn [x] {:id x :name x})
         ["tested" "requires testing"]))
 
+(defn- key-up-input [e]
+  (when (= "Enter" (.-key e))
+    (re-frame/dispatch
+     [::events/user-clicked-create-new-form-button])))
+
 (def model-metadata
   {:new-form/narrow-phonetic-transcription
    {:label "narr. phon. transcr."
@@ -120,10 +125,46 @@
        (when invalid?
          (:transcription form-model/new-form-field-validation-declarations
                          "invalid"))
+       :attr {:auto-focus true
+              :on-key-up key-up-input}
        :on-change
        (fn [transcription] (re-frame/dispatch-sync
                             [::events/user-changed-new-form-transcription
                              transcription]))]]]))
+
+(defn- fire-on-enter-space [event-vec]
+  (re-com/handler-fn
+   (when (some #{(.-key event)} ["Enter" " "])
+     (re-frame/dispatch event-vec)
+     (.preventDefault event))))
+
+(defn- add-new-translation-button []
+  [re-com/md-circle-icon-button
+   :md-icon-name "zmdi-plus"
+   :size :smaller
+   :tooltip "add another translation"
+   :attr {:tab-index "0"
+          :on-key-down
+          (fire-on-enter-space
+           [::events/user-clicked-add-new-translation-button])}
+   :on-click
+   (fn [_]
+     (re-frame/dispatch
+      [::events/user-clicked-add-new-translation-button]))])
+
+(defn- remove-translation-button [index]
+  [re-com/md-circle-icon-button
+   :md-icon-name "zmdi-minus"
+   :size :smaller
+   :tooltip "remove this translation"
+   :attr {:tab-index "0"
+          :on-key-down
+          (fire-on-enter-space
+           [::events/user-clicked-remove-translation-button index])}
+   :on-click
+   (fn [_]
+     (re-frame/dispatch
+      [::events/user-clicked-remove-translation-button index]))])
 
 (defn translation [index grammaticalities]
   (let [invalid? @(re-frame/subscribe [:new-form/invalid-field? :translations])]
@@ -150,6 +191,7 @@
        (when invalid?
          (:translations form-model/new-form-field-validation-declarations
                         "invalid"))
+       :attr {:on-key-up key-up-input}
        :on-change
        (fn [transcription]
          (re-frame/dispatch-sync
@@ -159,22 +201,8 @@
        :class (styles/default)
        :child
        (if (zero? index)
-         [re-com/md-circle-icon-button
-          :md-icon-name "zmdi-plus"
-          :size :smaller
-          :tooltip "add another translation"
-          :on-click
-          (fn [_]
-            (re-frame/dispatch
-             [::events/user-clicked-add-new-translation-button]))]
-         [re-com/md-circle-icon-button
-          :md-icon-name "zmdi-minus"
-          :size :smaller
-          :tooltip "remove this translation"
-          :on-click
-          (fn [_]
-            (re-frame/dispatch
-             [::events/user-clicked-remove-translation-button index]))])]]]))
+         [add-new-translation-button]
+         [remove-translation-button index])]]]))
 
 (defn translations [grammaticalities]
   [re-com/v-box
@@ -210,6 +238,7 @@
          :status-tooltip
          (when invalid? (field form-model/new-form-field-validation-declarations
                                "invalid"))
+         :attr {:on-key-up key-up-input}
          :on-change
          (fn [val] (re-frame/dispatch-sync [event val]))]]])))
 
