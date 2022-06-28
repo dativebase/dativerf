@@ -437,19 +437,45 @@
  ::turn-off-force-forms-reload
  (fn-traced [db _] (assoc db :forms/force-reload? false)))
 
-(re-frame/reg-event-fx
+(defn- update-db-given-created-form
+  "We just created a new form. In response, we update our known state of the OLD
+  to accommodate that fact. We update the paginator and add the new form to our
+  cache of forms. The paginator state is updated based on the incremented count
+  of forms known to be in the OLD. If we are viewing the page where the new form
+  should be displayed, then the paginator's state related to the page currently
+  being viewed may change also."
+  [{:as db :keys [forms-paginator/items-per-page
+                  forms-paginator/first-form
+                  forms-paginator/current-page-forms]} raw-created-form]
+  (let [forms (forms->uuid-keyed-forms-map
+               [(-> raw-created-form
+                    (assoc :uuid (:UUID raw-created-form)) ;; What?!!!
+                    utils/->kebab-case-recursive)]
+               (.now js/Date))
+        new-count (inc (:forms-paginator/count db))]
+    (-> db
+        (update-in [:old-states (:old db) :forms] merge forms)
+        (update-in [:old-states (:old db) :forms/view-state]
+                   merge (forms->view-states forms db))
+        (merge
+         (assoc
+          (utils/select-keys-by-ns "forms-paginator" db)
+          :forms-paginator/last-form (min new-count (+ first-form (dec items-per-page)))
+          :forms-paginator/last-page (Math/ceil (/ new-count items-per-page))
+          :forms-paginator/count new-count
+          :forms-paginator/current-page-forms
+          (if (= items-per-page (count current-page-forms))
+            current-page-forms
+            (conj current-page-forms (-> forms first key))))))))
+
+(re-frame/reg-event-db
  ::form-created
- (fn-traced [{:keys [db]} [event _response]]
-            {:db (-> db
-                     (transition-new-form-fsm event)
-                     invalidate-new-form-cache
-                     (merge db/default-new-form-state)
-                     (assoc :forms/force-reload? true))
-             ;; TODO: Is always navigating to the last page of forms the best behaviour?
-             :fx [[:dispatch [::navigate
-                              {:handler :forms-last-page
-                               :route-params
-                               {:old (old-model/slug db)}}]]]}))
+ (fn-traced [db [event new-form]]
+            (-> db
+                (transition-new-form-fsm event)
+                invalidate-new-form-cache
+                (merge db/default-new-form-state)
+                (update-db-given-created-form new-form))))
 
 (defn- format-server-validation-errors
   "Unfortunately, the OLD's validation responses are not very regular. We
