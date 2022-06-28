@@ -8,6 +8,7 @@
             [dativerf.utils :as utils]
             [reagent.ratom :as r]
             [re-frame.core :as re-frame]
+            [re-com.box :refer [flex-child-style align-style]]
             [re-com.core :as re-com]))
 
 (def statuses
@@ -101,7 +102,9 @@
       :child (or (and model (model-label model)) "")]]))
 
 (defn transcription [grammaticalities]
-  (let [invalid? @(re-frame/subscribe [:new-form/invalid-field? :transcription])]
+  (let [invalid-msg
+        @(re-frame/subscribe [:new-form/field-specific-validation-error-message
+                              :transcription])]
     [re-com/h-box
      :gap "10px"
      :children
@@ -119,12 +122,9 @@
        :placeholder "transcription"
        :width "500px"
        :model @(re-frame/subscribe [:new-form/transcription])
-       :status (when invalid? :error)
-       :status-icon? invalid?
-       :status-tooltip
-       (when invalid?
-         (:transcription form-model/new-form-field-validation-declarations
-                         "invalid"))
+       :status (and invalid-msg :error)
+       :status-icon? invalid-msg
+       :status-tooltip invalid-msg
        :attr {:auto-focus true
               :on-key-up key-up-input}
        :on-change
@@ -167,7 +167,9 @@
       [::events/user-clicked-remove-translation-button index]))])
 
 (defn translation [index grammaticalities]
-  (let [invalid? @(re-frame/subscribe [:new-form/invalid-field? :translations])]
+  (let [invalid-msg
+        @(re-frame/subscribe [:new-form/field-specific-validation-error-message
+                              :translations])]
     [re-com/h-box
      :gap "10px"
      :children
@@ -185,12 +187,9 @@
        :placeholder "translation"
        :width "460px"
        :model @(re-frame/subscribe [:new-form/translation-transcription index])
-       :status (when invalid? :error)
-       :status-icon? invalid?
-       :status-tooltip
-       (when invalid?
-         (:translations form-model/new-form-field-validation-declarations
-                        "invalid"))
+       :status (and invalid-msg :error)
+       :status-icon? invalid-msg
+       :status-tooltip invalid-msg
        :attr {:on-key-up key-up-input}
        :on-change
        (fn [transcription]
@@ -223,7 +222,9 @@
   (when (some #{(utils/set-kw-ns-to-form model)}
               @(re-frame/subscribe [::subs/visible-form-fields]))
     (let [field (utils/remove-namespace model)
-          invalid? @(re-frame/subscribe [:new-form/invalid-field? field])]
+          invalid-msg
+          @(re-frame/subscribe [:new-form/field-specific-validation-error-message
+                                field])]
       [re-com/h-box
        :gap "10px"
        :children
@@ -233,11 +234,9 @@
          :placeholder (model-placeholder model)
          :width "560px"
          :model @(re-frame/subscribe [model])
-         :status (when invalid? :error)
-         :status-icon? invalid?
-         :status-tooltip
-         (when invalid? (field form-model/new-form-field-validation-declarations
-                               "invalid"))
+         :status (and invalid-msg :error)
+         :status-icon? invalid-msg
+         :status-tooltip invalid-msg
          :attr {:on-key-up key-up-input}
          :on-change
          (fn [val] (re-frame/dispatch-sync [event val]))]]])))
@@ -317,7 +316,7 @@
     [re-com/alert-box
      :alert-type :danger
      :heading "Invalid Form"
-     :body form-model/new-form-validation-message]))
+     :body @(re-frame/subscribe [:new-form/general-validation-error-message])]))
 
 (defn inputs [{:keys [grammaticalities]}]
   [re-com/v-box
@@ -334,6 +333,28 @@
      ::events/user-changed-new-form-morpheme-gloss]
     [translations grammaticalities]]])
 
+;; This is copy/modified from the re-com source for input-text. See
+;; https://github.com/day8/re-com/blob/master/src/re_com/input_text.cljs#L162-L201
+(defn field-invalid-warning [message]
+  (let [showing? (r/atom false)]
+    [re-com/popover-tooltip
+     :label message
+     :position :right-center
+     :status :error
+     :showing? showing?
+     :anchor
+     [:i {:class "zmdi zmdi-hc-fw zmdi-alert-circle zmdi-spinner form-control-feedback"
+          :style {:position "static"
+                  :height "auto"
+                  :color "#d50000"
+                  :opacity "1"}
+          :on-mouse-over (re-com/handler-fn (reset! showing? true))
+          :on-mouse-out  (re-com/handler-fn (reset! showing? false))}]
+     :style (merge (flex-child-style "none")
+                   (align-style :align-self :center)
+                   {:font-size   "130%"
+                    :margin-left "4px"})]))
+
 (defn named-resource-single-select
   ([choices model event]
    (named-resource-single-select choices model event :name))
@@ -342,55 +363,75 @@
   ([choices model event label-fn filter-box?]
    (when (some #{(utils/set-kw-ns-to-form model)}
                @(re-frame/subscribe [::subs/visible-form-fields]))
-     [labeled-input
-      model
-      [re-com/single-dropdown
-       :choices (sort-by (comp str/lower-case :label)
-                         (for [r choices] {:id (:id r) :label (label-fn r)}))
-       :width "560px"
-       :filter-box? filter-box?
-       :model @(re-frame/subscribe [model])
-       :on-change (fn [value] (re-frame/dispatch [event value]))]])))
+     (let [field (utils/remove-namespace model)
+           invalid-msg
+           @(re-frame/subscribe [:new-form/field-specific-validation-error-message
+                                 field])]
+       [labeled-input
+        model
+        [re-com/h-box
+         :children
+         [[re-com/single-dropdown
+           :choices (sort-by (comp str/lower-case :label)
+                             (for [r choices] {:id (:id r) :label (label-fn r)}))
+           :width (if invalid-msg "525px" "560px")
+           :filter-box? filter-box?
+           :model @(re-frame/subscribe [model])
+           ;; This style is hacky, but it's the best I could do
+           :style (when invalid-msg {:border "1px solid #d50000"
+                                     :border-radius "5px"})
+           :on-change (fn [value] (re-frame/dispatch [event value]))]
+          (when invalid-msg [field-invalid-warning invalid-msg])]]]))))
 
 (defn tags [available-tags]
   (when (some #{:form/tags} @(re-frame/subscribe [::subs/visible-form-fields]))
-    [labeled-input
-     :new-form/tags
-     [re-com/selection-list
-      :choices (sort-by :label
-                        (for [tag available-tags]
-                          {:id (:id tag) :label (:name tag)}))
-      :width "560px"
-      :height "60px"
-      :model @(re-frame/subscribe [:new-form/tags])
-      :on-change (fn [tags]
-                   (re-frame/dispatch
-                    [::events/user-changed-new-form-tags tags]))]]))
+    (let [invalid-msg
+          @(re-frame/subscribe [:new-form/field-specific-validation-error-message
+                                :tags])]
+      [labeled-input
+       :new-form/tags
+       [re-com/h-box
+        :children
+        [[re-com/selection-list
+          :choices (sort-by :label
+                            (for [tag available-tags]
+                              {:id (:id tag) :label (:name tag)}))
+          :width (if invalid-msg "523px" "558px")
+          :height "60px"
+          :model @(re-frame/subscribe [:new-form/tags])
+          :on-change (fn [tags]
+                       (re-frame/dispatch
+                        [::events/user-changed-new-form-tags tags]))]
+         (when invalid-msg [field-invalid-warning invalid-msg])]]])))
 
 (defn date-elicited []
   (when (some #{:form/date-elicited}
               @(re-frame/subscribe [::subs/visible-form-fields]))
-    [re-com/h-box
-     :class (styles/default)
-     :gap "10px"
-     :children
-     [[label :new-form/date-elicited]
-      ;; TODO: the datepicker of re-com doesn't work that well. For instance, the
-      ;; :show-today? attribute doesn't work. This seems to be a known issue.
-      [re-com/datepicker-dropdown
-       :model @(re-frame/subscribe [:new-form/date-elicited])
-       :show-today? true
-       :on-change (fn [date-elicited]
-                    (re-frame/dispatch
-                     [::events/user-changed-new-form-date-elicited
-                      date-elicited]))]
-      [re-com/md-circle-icon-button
-       :md-icon-name "zmdi-delete"
-       :size :smaller
-       :tooltip "remove date elicited"
-       :on-click
-       (fn [_]
-         (re-frame/dispatch [::events/user-changed-new-form-date-elicited nil]))]]]))
+    (let [invalid-msg
+          @(re-frame/subscribe [:new-form/field-specific-validation-error-message
+                                :date-elicited])]
+      [re-com/h-box
+       :class (styles/default)
+       :gap "10px"
+       :children
+       [[label :new-form/date-elicited]
+        ;; TODO: the datepicker of re-com doesn't work that well. For instance, the
+        ;; :show-today? attribute doesn't work. This seems to be a known issue.
+        [re-com/datepicker-dropdown
+         :model @(re-frame/subscribe [:new-form/date-elicited])
+         :show-today? true
+         :on-change (fn [date-elicited]
+                      (re-frame/dispatch
+                       [::events/user-changed-new-form-date-elicited
+                        date-elicited]))]
+        [re-com/md-circle-icon-button
+         :md-icon-name "zmdi-delete"
+         :size :smaller
+         :tooltip "remove date elicited"
+         :on-click
+         (fn [_]
+           (re-frame/dispatch [::events/user-changed-new-form-date-elicited nil]))]
+        (when invalid-msg [field-invalid-warning invalid-msg])]])))
 
 (defn- person->name [person]
   (str (:first-name person) " " (:last-name person)))

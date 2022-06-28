@@ -102,7 +102,8 @@
        ;; new form data
        :new-form-state :dativerf.fsms.new-form/ready
        :new-form nil
-       :new-form-invalid-fields #{}}
+       :new-form-field-specific-validation-error-messages {}
+       :new-form-general-validation-error-message nil}
       (merge default-new-form-state)))
 
 (defn default-form-view-state [{:as _db :keys [forms/expanded?]}]

@@ -279,13 +279,14 @@
   (let [new-form (form-model/new-form db)]
     (assoc db
            :new-form new-form
-           :new-form-invalid-fields (form-model/new-form-invalid-fields
-                                     new-form))))
+           :new-form-field-specific-validation-error-messages
+           (form-model/new-form-field-specific-validation-error-messages new-form))))
 
 (defn- invalidate-new-form-cache [db]
     (assoc db
            :new-form nil
-           :new-form-invalid-fields #{}))
+           :new-form-general-validation-error-message nil
+           :new-form-field-specific-validation-error-messages {}))
 
 (defn-traced transition-new-form-fsm [db event]
   (fsms/update-state db new-form-fsm/state-machine :new-form-state event))
@@ -426,8 +427,8 @@
              :http-xhrio
              (assoc post-request
                     :uri (old/forms (old-model/old db))
-                    :params (utils/->snake-case-recursive (form-model/new-form
-                                                           db))
+                    :params (utils/->snake-case-recursive
+                             (form-model/new-form db))
                     :on-success [::form-created]
                     :on-failure [::form-not-created])}))
 
@@ -449,15 +450,38 @@
                                :route-params
                                {:old (old-model/slug db)}}]]]}))
 
+(defn- format-server-validation-errors
+  "Unfortunately, the OLD's validation responses are not very regular. We
+  regularize them here."
+  [errors]
+  (if (string? errors)
+    {:new-form-general-validation-error-message errors}
+    {:new-form-field-specific-validation-error-messages
+     (->> (utils/->kebab-case-recursive errors)
+          (map (juxt key (comp (fn [v] (if (coll? v)
+                                         (first v)
+                                         v)) val)))
+          (into {}))}))
+
 (re-frame/reg-event-db
  ::form-not-created
- (fn-traced [db [event server-response]]
-            (println "form was not created; server response:")
-            (cljs.pprint/pprint server-response)
-            ;; TODO: distinguish a) validation failure from server from more
-            ;; general failure (e.g., 500 response.)
-            ;; TODO: associate server-side validation errors into db somehow ...
-            (transition-new-form-fsm db event)))
+ (fn-traced [db [event {:as r :keys [status] {:keys [errors]} :response}]]
+            ;; TODO: this when indicates a non-validation error response from
+            ;; the OLD. We should inform the user of this so they can retry, or
+            ;; we should retry.
+            (when-not (and errors (= 400 status))
+              (warn "OLD server returned an unexpected response to a POST /forms request:")
+              (cljs.pprint/pprint r))
+
+            (when (and errors (= 400 status))
+              (cljs.pprint/pprint
+               (format-server-validation-errors errors)))
+
+            (cond-> db
+              :always
+              (transition-new-form-fsm event)
+              (and errors (= 400 status))
+              (merge (format-server-validation-errors errors)))))
 
 (re-frame/reg-event-fx
  ::fetch-form
