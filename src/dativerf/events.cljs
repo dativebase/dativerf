@@ -2,6 +2,7 @@
   (:require
    [ajax.core :as ajax]
    [clojure.string :as str]
+   [cljs.pprint :as pprint]
    [dativerf.db :as db]
    [dativerf.fsms :as fsms]
    [dativerf.fsms.login :as login]
@@ -471,12 +472,10 @@
             ;; we should retry.
             (when-not (and errors (= 400 status))
               (warn "OLD server returned an unexpected response to a POST /forms request:")
-              (cljs.pprint/pprint r))
-
+              (pprint/pprint r))
             (when (and errors (= 400 status))
-              (cljs.pprint/pprint
+              (pprint/pprint
                (format-server-validation-errors errors)))
-
             (cond-> db
               :always
               (transition-new-form-fsm event)
