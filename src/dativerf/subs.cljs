@@ -2,6 +2,7 @@
   (:require
    [re-frame.core :as re-frame]
    [dativerf.fsms.login :as login]
+   [dativerf.models.form :as form-model]
    [dativerf.models.old :as old-model]))
 
 (re-frame/reg-sub ::name (fn [db] (:name db)))
@@ -97,10 +98,16 @@
  (fn [login-state _] (= login-state ::login/user-is-authenticated)))
 
 (re-frame/reg-sub :new-form/state (fn [db _] (:new-form-state db)))
+(re-frame/reg-sub
+ :new-form/general-validation-error-message
+ (fn [db _] (or (:new-form-general-validation-error-message db)
+                form-model/new-form-validation-message)))
 
 (re-frame/reg-sub
- :new-form/invalid-field?
- (fn [db [_ field]] (boolean (some #{field} (:new-form-invalid-fields db)))))
+ :new-form/field-specific-validation-error-message
+ (fn [db [_ field]] (-> db
+                        :new-form-field-specific-validation-error-messages
+                        field)))
 
 ;; Forms Browse Navigation Subscriptions
 (re-frame/reg-sub ::forms-items-per-page

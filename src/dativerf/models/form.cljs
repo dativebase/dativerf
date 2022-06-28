@@ -17,7 +17,7 @@
        " one translation."))
 
 (defn string-of-max-len [len name]
-  (str "A " name " is a string of at most " len " characters."))
+  (str "A " name " can have at most " len " characters."))
 
 (def new-form-field-validation-declarations
   (assoc
@@ -34,10 +34,15 @@
    :date-elicited "A date elicited is a date string in the format 'MM/DD/YYYY'."
    :translations "A form requires at least one non-empty translation."))
 
-(defn new-form-invalid-fields [new-form]
+(defn new-form-field-specific-validation-error-messages [new-form]
   (->> new-form
        form-specs/write-form-explain-data
        :cljs.spec.alpha/problems
        (map (comp first :path))
        (filter some?)
-       set))
+       set
+       (map (juxt identity
+                  (fn [k]
+                    (get new-form-field-validation-declarations k
+                         "The supplied value is invalid."))))
+       (into {})))
