@@ -1,8 +1,8 @@
 (ns dativerf.views.forms.new
+  {:clj-kondo/config '{:linters {:unresolved-symbol {:level :off}}}}
   (:require [clojure.string :as str]
             [dativerf.events :as events]
             [dativerf.fsms.new-form :as new-form-fsm]
-            [dativerf.models.form :as form-model]
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
