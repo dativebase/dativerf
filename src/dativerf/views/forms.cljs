@@ -431,7 +431,8 @@
    :padding "1em"
    :children
    [[form-navigation]
-    [form/igt-form (:uuid form)]]])
+    [form/igt-form (:uuid form)]
+    [delete-form-modal]]])
 
 (defmethod routes/tabs :forms-page
   [{{:keys [page items-per-page]} :route-params}]

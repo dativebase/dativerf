@@ -496,15 +496,18 @@
                              forms-paginator/items-per-page]} :db}
              [_ deleted-form]]
             (let [deleted-form-uuid (-> deleted-form :UUID uuid)
-                  dispatch (if (and (= 1 (count current-page-forms))
-                                    (> current-page 1))
-                             [::navigate
-                              {:handler :forms-page
-                               :route-params
-                               {:old (old-model/slug db)
-                                :items-per-page items-per-page
-                                :page (dec current-page)}}]
-                             [::fetch-forms-page current-page items-per-page])]
+                  dispatch
+                  (cond (= :form-page (-> db :active-route :handler))
+                        [::navigate (:forms/previous-browse-route db)]
+                        (and (= 1 (count current-page-forms))
+                             (> current-page 1))
+                        [::navigate {:handler :forms-page
+                                     :route-params
+                                     {:old (old-model/slug db)
+                                      :items-per-page items-per-page
+                                      :page (dec current-page)}}]
+                        :else
+                        [::fetch-forms-page current-page items-per-page])]
               {:db (-> db
                        (update-in [:old-states (:old db) :forms]
                                   dissoc deleted-form-uuid)
