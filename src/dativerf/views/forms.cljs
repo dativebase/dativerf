@@ -439,11 +439,12 @@
   (let [current-page @(re-frame/subscribe [::subs/forms-current-page])
         page (js/parseInt page)
         form-ids @(re-frame/subscribe [::subs/forms-current-page-forms])
+        forms-count @(re-frame/subscribe [::subs/forms-count])
         forms (filter some?
                       (for [form-id form-ids]
                         @(re-frame/subscribe [::subs/form-by-id form-id])))]
-    (if (and (= page current-page)
-             (= (count form-ids) (count forms)))
+    (if (or (zero? forms-count)
+            (and (= page current-page) (= (count form-ids) (count forms))))
       [forms-tab]
       (do (re-frame/dispatch [::events/fetch-forms-page page items-per-page])
           [re-com/throbber :size :large]))))

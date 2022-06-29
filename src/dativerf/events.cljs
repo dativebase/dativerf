@@ -93,10 +93,11 @@
   [response db]
   (let [{:keys [items paginator]} (utils/->kebab-case-recursive response)
         {:keys [page items-per-page count]} paginator
-        current-page page
         last-page (Math/ceil (/ count items-per-page))
-        first-form (- (* current-page items-per-page)
-                      (dec items-per-page))
+        current-page (min last-page page)
+        first-form (min (inc count)
+                        (max 0 (- (* current-page items-per-page)
+                                  (dec items-per-page))))
         last-form (min count (+ first-form (dec items-per-page)))
         fetched-at (.now js/Date)
         forms (forms->uuid-keyed-forms-map items fetched-at)
@@ -672,12 +673,12 @@
               (utils/->kebab-case-recursive forms-new))))
 
 (re-frame/reg-event-db
-  ::formsearches-new-fetched
-  (fn-traced [db [_event formsearches-new]]
-             (assoc-in
-              db
-              [:old-states (:old db) :formsearches-new]
-              (utils/->kebab-case-recursive formsearches-new))))
+ ::formsearches-new-fetched
+ (fn-traced [db [_event formsearches-new]]
+            (assoc-in
+             db
+             [:old-states (:old db) :formsearches-new]
+             (utils/->kebab-case-recursive formsearches-new))))
 
 (re-frame/reg-event-fx
  ::server-deauthenticated
@@ -727,7 +728,7 @@
  ::forms-page-not-fetched
  (fn-traced [db [_ page items-per-page]]
             (warn (str "failed to fetch forms page " page
-                       " with %s items per page " items-per-page))
+                       " with " items-per-page " items per page"))
             db))
 
 (re-frame/reg-event-db
