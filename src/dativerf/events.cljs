@@ -59,6 +59,8 @@
 
 (def post-request (assoc get-request :method :post))
 
+(def delete-request (assoc get-request :method :delete))
+
 (defn- forms->uuid-keyed-forms-map [forms fetched-at]
   (->> forms
        (map (comp
@@ -433,6 +435,16 @@
                     :on-success [::form-created]
                     :on-failure [::form-not-created])}))
 
+(re-frame/reg-event-fx
+ ::delete-form
+ (fn-traced [{:keys [db]} [_ form-int-id]]
+            {:db (assoc db :forms/form-to-delete nil)
+             :http-xhrio
+             (assoc delete-request
+                    :uri (old/form (old-model/old db) form-int-id)
+                    :on-success [::form-deleted]
+                    :on-failure [::form-not-deleted])}))
+
 (re-frame/reg-event-db
  ::turn-off-force-forms-reload
  (fn-traced [db _] (assoc db :forms/force-reload? false)))
@@ -477,6 +489,29 @@
                 (merge db/default-new-form-state)
                 (update-db-given-created-form new-form))))
 
+(re-frame/reg-event-fx
+ ::form-deleted
+ (fn-traced [{{:as db :keys [forms-paginator/current-page
+                             forms-paginator/current-page-forms
+                             forms-paginator/items-per-page]} :db}
+             [_ deleted-form]]
+            (let [deleted-form-uuid (-> deleted-form :UUID uuid)
+                  dispatch (if (and (= 1 (count current-page-forms))
+                                    (> current-page 1))
+                             [::navigate
+                              {:handler :forms-page
+                               :route-params
+                               {:old (old-model/slug db)
+                                :items-per-page items-per-page
+                                :page (dec current-page)}}]
+                             [::fetch-forms-page current-page items-per-page])]
+              {:db (-> db
+                       (update-in [:old-states (:old db) :forms]
+                                  dissoc deleted-form-uuid)
+                       (update-in [:old-states (:old db) :forms/view-state]
+                                  dissoc deleted-form-uuid))
+               :fx [[:dispatch dispatch]]})))
+
 (defn- format-server-validation-errors
   "Unfortunately, the OLD's validation responses are not very regular. We
   regularize them here."
@@ -507,6 +542,12 @@
               (transition-new-form-fsm event)
               (and errors (= 400 status))
               (merge (format-server-validation-errors errors)))))
+
+(re-frame/reg-event-db
+ ::form-not-deleted
+ (fn-traced [_db [_ response]]
+            (warn "Failed to delete a form")
+            (pprint/pprint response)))
 
 (re-frame/reg-event-fx
  ::fetch-form
@@ -805,6 +846,14 @@
  ::user-clicked-export-form-button
  (fn [{:keys [old]} form-id]
    [:old-states old :forms/view-state form-id :export-interface-visible?]))
+
+(re-frame/reg-event-db
+ ::user-clicked-delete-form-button
+ (fn [db [_ form-id]] (assoc db :forms/form-to-delete form-id)))
+
+(re-frame/reg-event-db
+ ::abort-form-deletion
+ (fn [db _] (assoc db :forms/form-to-delete nil)))
 
 (register-form-toggler
 ::user-clicked-form
