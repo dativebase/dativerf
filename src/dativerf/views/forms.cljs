@@ -371,6 +371,38 @@
                     [widgets/copy-button export-string "forms export"]]]
         [forms-export export-string]]])))
 
+(defn delete-form-modal []
+  (when-let [form-to-delete @(re-frame/subscribe [::subs/form-to-delete])]
+    [re-com/modal-panel
+     :src (at)
+     :backdrop-color "grey"
+     :backdrop-opacity 0.4
+     :backdrop-on-click (fn [] (re-frame/dispatch
+                                [::events/abort-form-deletion]))
+     :child
+     [re-com/v-box
+      :children
+      [[re-com/alert-box
+        :alert-type :danger
+        :heading (str "Delete form " form-to-delete)
+        :body (str "Are you sure that you want to delete the form with ID "
+                   form-to-delete "?")]
+       [re-com/h-box
+        :gap "10px"
+        :justify :end
+        :children
+        [[re-com/button
+          :label "Cancel"
+          :attr {:auto-focus true}
+          :tooltip "don't actually delete this form"
+          :on-click (fn [] (re-frame/dispatch [::events/abort-form-deletion]))]
+         [re-com/button
+          :label "Ok"
+          :tooltip "go ahead and delete this form"
+          :class "btn-danger"
+          :on-click (fn [_e] (re-frame/dispatch
+                              [::events/delete-form form-to-delete]))]]]]]]))
+
 (defn- forms-tab []
   [re-com/v-box
    :src (at)
@@ -381,7 +413,8 @@
     [forms-settings/interface]
     [forms-new/interface]
     [export-forms-interface]
-    [forms-enumeration]]])
+    [forms-enumeration]
+    [delete-form-modal]]])
 
 (defn- form-navigation []
   [re-com/h-box

@@ -12,7 +12,7 @@
 
 ;; Buttons
 
-(defn export-button [{form-id :uuid}]
+(defn export-button [form-id]
   [re-com/md-circle-icon-button
    :md-icon-name "zmdi-download"
    :size :smaller
@@ -23,13 +23,13 @@
                (re-frame/dispatch
                 [::events/user-clicked-export-form-button form-id]))])
 
-(defn collapse-button [{:keys [uuid]}]
+(defn collapse-button [form-id]
   [re-com/md-circle-icon-button
    :md-icon-name "zmdi-chevron-up"
    :size :smaller
    :tooltip "collapse this form"
    :on-click (fn [_] (re-frame/dispatch
-                      [::events/user-clicked-form uuid]))])
+                      [::events/user-clicked-form form-id]))])
 
 (defn form-export-select [form-id]
   [re-com/single-dropdown
@@ -42,6 +42,16 @@
    (fn [export-id]
      (re-frame/dispatch
       [::events/user-selected-form-export form-id export-id]))])
+
+(defn delete-form-button [form-id]
+  [re-com/md-circle-icon-button
+   :md-icon-name "zmdi-delete"
+   :size :smaller
+   :tooltip "delete this form"
+   :on-click
+   (fn [_]
+     (re-frame/dispatch
+      [::events/user-clicked-delete-form-button form-id]))])
 
 ;; End Buttons
 
@@ -357,14 +367,32 @@
         (->> date-str reverse (drop 11) reverse (apply str))
         date-str))))
 
-(defn igt-form-buttons [form]
+(defn header-left [{form-id :uuid}]
   [re-com/h-box
    :src (at)
-   :class (styles/default)
    :gap "5px"
+   :size "auto"
    :children
-   [[collapse-button form]
-    [export-button form]]])
+   [[collapse-button form-id]
+    [export-button form-id]]])
+
+(defn header-right [{form-id :id}]
+  [re-com/h-box
+   :src (at)
+   :gap "5px"
+   :size "auto"
+   :justify :end
+   :children
+   [[delete-form-button form-id]]])
+
+(defn header [form]
+  [re-com/h-box
+   :src (at)
+   :gap "5px"
+   :class (styles/default)
+   :children
+   [[header-left form]
+    [header-right form]]])
 
 (defn form-export [export-string]
   [re-com/box
@@ -391,7 +419,7 @@
     [re-com/v-box
      :class (styles/default)
      :children
-     [[igt-form-buttons form]
+     [[header form]
       [igt-form-export-interface form]]]))
 
 (defn igt-form-secondary

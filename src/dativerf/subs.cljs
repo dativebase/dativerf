@@ -189,6 +189,10 @@
  (fn [db _] (:forms/new-form-interface-visible? db)))
 
 (re-frame/reg-sub
+ ::form-to-delete
+ (fn [db _] (:forms/form-to-delete db)))
+
+(re-frame/reg-sub
  ::forms-new-form-secondary-fields-visible?
  (fn [db _] (:forms/new-form-secondary-fields-visible? db)))
 
