@@ -1,6 +1,7 @@
 (ns dativerf.utils
   (:require [camel-snake-kebab.core :as csk]
             [cljs.pprint :as pprint]
+            [cljs-time.format :as timef]
             [clojure.string :as str]
             [clojure.walk :as walk]
             [goog.string :as gstring]
@@ -75,3 +76,19 @@
    (gstring/format "%02d" (.getDate dt))
    "/"
    (gstring/format "%02d" (.getYear dt))))
+
+;; Format returned is 'Fri, 22 Jan 2016 21:43:54 Z'
+;; Probably want something different eventually.
+(defn datetime->human-string [datetime]
+  (timef/unparse (timef/formatters :rfc822) datetime))
+
+;; WARNING: hacky
+;; Format returned is 'Fri, 22 Jan 2016'
+;; Probably want something different eventually.
+(defn date->human-string [date]
+  (when date
+    (let [date-str (datetime->human-string date)
+          time-sfx (->> date-str reverse (take 11) reverse (apply str))]
+      (if (= " 00:00:00 Z" time-sfx)
+        (->> date-str reverse (drop 11) reverse (apply str))
+        date-str))))

@@ -351,22 +351,6 @@
                         :transcription morpheme-gloss}]
     [igt-translations uuid translations]]])
 
-;; Format returned is 'Fri, 22 Jan 2016 21:43:54 Z'
-;; Probably want something different eventually.
-(defn datetime->human-string [datetime]
-  (timef/unparse (timef/formatters :rfc822) datetime))
-
-;; WARNING: hacky
-;; Format returned is 'Fri, 22 Jan 2016'
-;; Probably want something different eventually.
-(defn date->human-string [date]
-  (when date
-    (let [date-str (datetime->human-string date)
-          time-sfx (->> date-str reverse (take 11) reverse (apply str))]
-      (if (= " 00:00:00 Z" time-sfx)
-        (->> date-str reverse (drop 11) reverse (apply str))
-        date-str))))
-
 (defn header-left [{form-id :uuid}]
   [re-com/h-box
    :src (at)
@@ -438,7 +422,7 @@
       [tags-as-string tags]
       [syntactic-category-as-string syntactic-category]
       [elicitation-method-as-string elicitation-method]
-      [secondary-scalar :date-elicited (date->human-string date-elicited)]
+      [secondary-scalar :date-elicited (utils/date->human-string date-elicited)]
       [person-as-string :speaker speaker]
       [person-as-string :elicitor elicitor]
       [person-as-string :verifier verifier]
@@ -446,9 +430,9 @@
       [secondary-scalar
        :datetime-entered
        (when datetime-entered
-         (datetime->human-string datetime-entered))]
+         (utils/datetime->human-string datetime-entered))]
       [person-as-string :modifier modifier]
-      [secondary-scalar :datetime-modified (datetime->human-string
+      [secondary-scalar :datetime-modified (utils/datetime->human-string
                                             datetime-modified)]
       [files-as-string files]
       [source-as-string source]
