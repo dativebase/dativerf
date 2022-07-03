@@ -92,3 +92,25 @@
       (if (= " 00:00:00 Z" time-sfx)
         (->> date-str reverse (drop 11) reverse (apply str))
         date-str))))
+
+(defn parse-date-string [x]
+  (try (timef/parse (timef/formatters :date) x)
+       (catch js/Error _)))
+
+(defn date-string? [^string x]
+  (and (string? x)
+       (parse-date-string x)))
+
+(defn parse-datetime-string
+  "Parse a datetime string like 2022-02-23T18:27:49.628337. To do this, we must
+  remove the last 3 digits, reducing the microsecond precision to millisecond
+  precision."
+  [x]
+  (try (timef/parse
+        (timef/formatters :date-hour-minute-second-ms)
+        (str/replace x #"\.(\d{3})\d{3}$" ".$1"))
+       (catch js/Error _)))
+
+(defn datetime-string? [^string x]
+  (and (string? x)
+       (parse-datetime-string x)))

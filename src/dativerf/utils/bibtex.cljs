@@ -1,6 +1,14 @@
 (ns dativerf.utils.bibtex
-  "Utils for handling BibTeX entities. These are related to OLD source entities,
-  since sources are essentially BibTeX entries."
+  "Utils for handling BibTeX entities. These are the foundation for OLD source
+  entities, since sources are essentially BibTeX entries.
+
+  GUIDANCE:
+  - Functionality should go here if it is about BibTeX-specific things, such as
+    parsing name strings correctly.
+  - Functionality should go in the Sources model ns if it is about
+    implementation details of how the OLD models BibTeX entities, e.g.,
+    accessing attributes via crossref links where the cross-referenced source is
+    pre-hydrated (by the OLD) on the crossref-source key."
   (:require [clojure.string :as str]))
 
 (defn- clean-token [token] (str/replace token #"^\{(.*)\}$" "$1"))
@@ -91,19 +99,3 @@
 (defn name-in-citation-form [name]
   (try (last-names (parse-bibtex-name name))
        (catch js/Error _ name)))
-
-(defn author
-  "Return an author for supplied source object. We return the author in
-  citation form if there is an author; otherwise we return the editor in
-  citation form or the title or 'no author'."
-  [{:keys [author editor title]}]
-  (let [prep (fn [x] (some-> x str/trim not-empty))
-        [author editor title] (map prep [author editor title])]
-    (cond author (name-in-citation-form author)
-          editor (name-in-citation-form editor)
-          title title
-          :else "no author")))
-
-;; TODO: it smells that year is int according to the spec but the not found
-;; value is a string.
-(defn year [source] (or (:year source) "no year"))

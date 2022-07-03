@@ -63,19 +63,3 @@
            "Ralph Alpher and Bethe, Hans and George Gamow"
            "Alpher, Bethe and Gamow"}]
     (t/is (= expected (sut/name-in-citation-form input)))))
-
-(t/deftest author-works
-  (doseq [[source expected]
-          {{:author "Ralph Alpher and Bethe, Hans and George Gamow"}
-           "Alpher, Bethe and Gamow"
-           {:editor "Ralph Alpher and Bethe, Hans and George Gamow" :author " "}
-           "Alpher, Bethe and Gamow"
-           {:editor "" :author " " :title "Great Article"} "Great Article"
-           {} "no author"}]
-    (t/is (= expected (sut/author source)))))
-
-(t/deftest year-works
-  (doseq [[source expected]
-          {{:year 2022} 2022
-           {} "no year"}]
-    (t/is (= expected (sut/year source)))))
