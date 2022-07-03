@@ -66,7 +66,7 @@
        (map (comp
              ;; TODO: fetched-at should be in view state, not in the data itself.
              #(assoc % :dative/fetched-at fetched-at)
-             form-specs/parse-form))
+             form-model/parse-form))
        (map (juxt :uuid identity))
        (into {})))
 
