@@ -8,6 +8,7 @@
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
             dativerf.views.old-settings
+            [dativerf.views.error :as error]
             dativerf.views.forms
             dativerf.views.home
             dativerf.views.login
@@ -102,4 +103,5 @@
      :padding "1em"
      :children [[title]
                 [menu]
-                (routes/tabs @active-route)]]))
+                (routes/tabs @active-route)
+                [error/modal]]]))
