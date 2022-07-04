@@ -3,7 +3,6 @@
             [clojure.spec.gen.alpha :as gen]
             [clojure.test.check.generators]
             [clojure.string :as str]
-            [cljs-time.format :as timef]
             [dativerf.db :as db]
             [dativerf.specs.common :as common]
             [dativerf.specs.file :as file]

@@ -1,6 +1,5 @@
 (ns dativerf.views.form
-  (:require [cljs-time.format :as timef]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [dativerf.events :as events]
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]

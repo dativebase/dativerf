@@ -89,7 +89,8 @@
   (when date
     (let [date-str (datetime->human-string date)
           time-sfx (->> date-str reverse (take 11) reverse (apply str))]
-      (if (= " 00:00:00 Z" time-sfx)
+      (if (and (= " " (first time-sfx))
+               (= "Z" (last time-sfx)))
         (->> date-str reverse (drop 11) reverse (apply str))
         date-str))))
 
@@ -114,3 +115,7 @@
 (defn datetime-string? [^string x]
   (and (string? x)
        (parse-datetime-string x)))
+
+(defn empty-string->nil [s] (some-> s str/trim not-empty))
+
+(defn get-empty-string->nil [m k] (some-> m k empty-string->nil))
