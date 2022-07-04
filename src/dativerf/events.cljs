@@ -732,19 +732,23 @@
                   (warn (str "failed to fetch forms first page for last page;"
                              " response status:" status
                              " retries: " retries))
-                  {:db (assoc db :forms-page/retries 0)})))))
+                  {:db (assoc db
+                              :forms-page/retries 0
+                              :system/error
+                              (if (and (zero? status) (>= retries 3))
+                                :fetch-first-page-forms-retries-exceeded
+                                :fetch-first-page-forms-failed))})))))
 
 (re-frame/reg-event-db
  ::form-not-fetched
  (fn-traced [db [_ form-id]]
             (warn (str "failed to fetch form " form-id))
-            db))
+            (assoc db :system/error :form-not-fetched)))
 
 (re-frame/reg-event-fx
  ::server-not-authenticated
  (fn-traced [{:keys [db]} [event {:keys [status response]}]]
             (let [{:keys [login/username login/password login/retries]} db]
-              ;; TODO: what if status is zero but retries have been exhausted?
               (if (and (zero? status) (< retries 3))
                 {:db (update db :login/retries inc)
                  :http-xhrio
@@ -756,7 +760,10 @@
                 {:db
                  (-> db
                      (assoc :login/invalid-reason (:error response "Undetermined error.")
-                            :login/retries 0)
+                            :login/retries 0
+                            :system/error (if (and (zero? status) (>= retries 3))
+                                            :authenticate-retries-exceeded
+                                            :authenticate-failed))
                      (fsms/update-state login/state-machine :login/state event))}))))
 
 (re-frame/reg-event-db
@@ -872,8 +879,12 @@
  ::abort-form-deletion
  (fn [db _] (assoc db :forms/form-to-delete nil)))
 
+(re-frame/reg-event-db
+ ::disregard-system-error
+ (fn [db _] (assoc db :system/error nil)))
+
 (register-form-toggler
-::user-clicked-form
+ ::user-clicked-form
  (fn [{:keys [old]} form-id]
    [:old-states old :forms/view-state form-id :expanded?]))
 

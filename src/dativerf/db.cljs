@@ -70,6 +70,7 @@
        :old nil
        :old-states {}
        :user nil
+       :system/error nil
        ;; settings state
        :settings/active-tab :server
        ;; login state

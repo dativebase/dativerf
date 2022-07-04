@@ -98,6 +98,7 @@
    :child
    [re-com/button
     :label "Logout"
+    :attr {:auto-focus true}
     :on-click (fn [_e] (re-frame/dispatch [::events/user-clicked-logout]))]])
 
 (defn login-tab []
