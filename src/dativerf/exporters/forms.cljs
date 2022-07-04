@@ -5,16 +5,17 @@
   string."
   (:require [clojure.string :as str]
             [dativerf.exporters.form :as form-exporter]
+            [dativerf.exporters.latex.expex :as expex]
             [dativerf.utils :as utils]))
 
-(defn plain-text-export [forms]
+(defn plain-text-export [forms _]
   (->> forms
        (map form-exporter/plain-text-export)
        (str/join "\n\n")))
 
 ;; JSON export
 
-(defn json-export [forms]
+(defn json-export [forms _]
   (->> forms
        (map form-exporter/prepare-form-for-jsonification)
        utils/->pretty-json))
@@ -23,7 +24,7 @@
 
 ;; I just enclose the collection of <div data-gloss> elements in a generic <div>
 ;; for now. It's not clear to me whether we want to do more here.
-(defn leipzig-igt-export [forms]
+(defn leipzig-igt-export [forms _]
   (str
    "<div>\n\n"
    (->> forms
@@ -34,15 +35,20 @@
 ;; API
 
 (def exports
-  [{:id :plain-text
-    :label "Plain Text"
-    :efn plain-text-export}
-   {:id :json
-    :label "JSON"
-    :efn json-export}
-   {:id :leipzig-igt
-    :label "Leipzig IGT"
-    :efn leipzig-igt-export}])
+  (sort-by
+   (comp str/lower-case :label)
+   [{:id :plain-text
+     :label "Plain Text"
+     :efn plain-text-export}
+    {:id :json
+     :label "JSON"
+     :efn json-export}
+    {:id :leipzig-igt
+     :label "Leipzig IGT"
+     :efn leipzig-igt-export}
+    {:id :latex-expex
+     :label "LaTeX ExPex"
+     :efn expex/export-forms}]))
 
 (defn export [export-id]
   (first (for [{:as e :keys [id]} exports

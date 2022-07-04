@@ -46,3 +46,10 @@
                     (get new-form-field-validation-declarations k
                          "The supplied value is invalid."))))
        (into {})))
+
+(defn parse-form [form]
+  (-> form
+      (update :date-elicited utils/date-string?)
+      (update :datetime-entered utils/datetime-string?)
+      (update :datetime-modified utils/datetime-string?)
+      (update :uuid uuid)))

@@ -16,3 +16,11 @@
               {:AnotherKey "abc"
                'symbolKey "def"}
               {:a_b {:cDogFish 444}}]}))))
+
+(t/deftest get-empty-string->nil-works
+  (t/is (= (repeat 4 nil)
+           [(sut/get-empty-string->nil {} :a)
+            (sut/get-empty-string->nil {:a nil} :a)
+            (sut/get-empty-string->nil {:a ""} :a)
+            (sut/get-empty-string->nil {:a "   "} :a)]))
+  (t/is (= "a" (sut/get-empty-string->nil {:a " a   "} :a))))

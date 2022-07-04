@@ -1,6 +1,7 @@
 (ns dativerf.utils
   (:require [camel-snake-kebab.core :as csk]
             [cljs.pprint :as pprint]
+            [cljs-time.format :as timef]
             [clojure.string :as str]
             [clojure.walk :as walk]
             [goog.string :as gstring]
@@ -75,3 +76,46 @@
    (gstring/format "%02d" (.getDate dt))
    "/"
    (gstring/format "%02d" (.getYear dt))))
+
+;; Format returned is 'Fri, 22 Jan 2016 21:43:54 Z'
+;; Probably want something different eventually.
+(defn datetime->human-string [datetime]
+  (timef/unparse (timef/formatters :rfc822) datetime))
+
+;; WARNING: hacky
+;; Format returned is 'Fri, 22 Jan 2016'
+;; Probably want something different eventually.
+(defn date->human-string [date]
+  (when date
+    (let [date-str (datetime->human-string date)
+          time-sfx (->> date-str reverse (take 11) reverse (apply str))]
+      (if (and (= " " (first time-sfx))
+               (= "Z" (last time-sfx)))
+        (->> date-str reverse (drop 11) reverse (apply str))
+        date-str))))
+
+(defn parse-date-string [x]
+  (try (timef/parse (timef/formatters :date) x)
+       (catch js/Error _)))
+
+(defn date-string? [^string x]
+  (and (string? x)
+       (parse-date-string x)))
+
+(defn parse-datetime-string
+  "Parse a datetime string like 2022-02-23T18:27:49.628337. To do this, we must
+  remove the last 3 digits, reducing the microsecond precision to millisecond
+  precision."
+  [x]
+  (try (timef/parse
+        (timef/formatters :date-hour-minute-second-ms)
+        (str/replace x #"\.(\d{3})\d{3}$" ".$1"))
+       (catch js/Error _)))
+
+(defn datetime-string? [^string x]
+  (and (string? x)
+       (parse-datetime-string x)))
+
+(defn empty-string->nil [s] (some-> s str/trim not-empty))
+
+(defn get-empty-string->nil [m k] (some-> m k empty-string->nil))

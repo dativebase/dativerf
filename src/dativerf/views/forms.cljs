@@ -362,10 +362,12 @@
   (when @(re-frame/subscribe [::subs/forms-export-interface-visible?])
     (let [export-fn (:efn (forms-exporter/export @(re-frame/subscribe
                                             [::subs/forms-export-format])))
+
+          user @(re-frame/subscribe [::subs/user])
           forms @(re-frame/subscribe
                   [::subs/forms-by-ids
                    @(re-frame/subscribe [::subs/forms-current-page-forms])])
-          export-string (export-fn (vals forms))]
+          export-string (export-fn (vals forms) {:user user})]
       [re-com/v-box
        :class (styles/export-interface)
        :children
@@ -374,6 +376,38 @@
          :children [[forms-export-select]
                     [widgets/copy-button export-string "forms export"]]]
         [forms-export export-string]]])))
+
+(defn delete-form-modal []
+  (when-let [form-to-delete @(re-frame/subscribe [::subs/form-to-delete])]
+    [re-com/modal-panel
+     :src (at)
+     :backdrop-color "grey"
+     :backdrop-opacity 0.4
+     :backdrop-on-click (fn [] (re-frame/dispatch
+                                [::events/abort-form-deletion]))
+     :child
+     [re-com/v-box
+      :children
+      [[re-com/alert-box
+        :alert-type :danger
+        :heading (str "Delete form " form-to-delete)
+        :body (str "Are you sure that you want to delete the form with ID "
+                   form-to-delete "?")]
+       [re-com/h-box
+        :gap "10px"
+        :justify :end
+        :children
+        [[re-com/button
+          :label "Cancel"
+          :attr {:auto-focus true}
+          :tooltip "don't actually delete this form"
+          :on-click (fn [] (re-frame/dispatch [::events/abort-form-deletion]))]
+         [re-com/button
+          :label "Ok"
+          :tooltip "go ahead and delete this form"
+          :class "btn-danger"
+          :on-click (fn [_e] (re-frame/dispatch
+                              [::events/delete-form form-to-delete]))]]]]]]))
 
 (defn- forms-tab []
   [re-com/v-box
@@ -386,7 +420,8 @@
     [forms-search/interface]
     [forms-new/interface]
     [export-forms-interface]
-    [forms-enumeration]]])
+    [forms-enumeration]
+    [delete-form-modal]]])
 
 (defn- form-navigation []
   [re-com/h-box
@@ -403,18 +438,20 @@
    :padding "1em"
    :children
    [[form-navigation]
-    [form/igt-form (:uuid form)]]])
+    [form/igt-form (:uuid form)]
+    [delete-form-modal]]])
 
 (defmethod routes/tabs :forms-page
   [{{:keys [page items-per-page]} :route-params}]
   (let [current-page @(re-frame/subscribe [::subs/forms-current-page])
         page (js/parseInt page)
         form-ids @(re-frame/subscribe [::subs/forms-current-page-forms])
+        forms-count @(re-frame/subscribe [::subs/forms-count])
         forms (filter some?
                       (for [form-id form-ids]
                         @(re-frame/subscribe [::subs/form-by-id form-id])))]
-    (if (and (= page current-page)
-             (= (count form-ids) (count forms)))
+    (if (or (zero? forms-count)
+            (and (= page current-page) (= (count form-ids) (count forms))))
       [forms-tab]
       (do (re-frame/dispatch [::events/fetch-forms-page page items-per-page])
           [re-com/throbber :size :large]))))
