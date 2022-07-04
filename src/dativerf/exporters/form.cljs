@@ -4,7 +4,8 @@
   To create a new export, add a new map to the exports vec with :id, :label and
   :efn keys. The value of :efn should be an export function. It takes a form and
   returns a string."
-  (:require [dativerf.utils :as utils]
+  (:require [dativerf.exporters.latex.expex :as expex]
+            [dativerf.utils :as utils]
             [clojure.string :as str]))
 
 ;; Plain text export
@@ -97,15 +98,20 @@
 ;; API
 
 (def exports
-  [{:id :plain-text
-    :label "Plain Text"
-    :efn plain-text-export}
-   {:id :json
-    :label "JSON"
-    :efn json-export}
-   {:id :leipzig-igt
-    :label "Leipzig IGT"
-    :efn leipzig-igt-export}])
+  (sort-by
+   (comp str/lower-case :label)
+   [{:id :plain-text
+     :label "Plain Text"
+     :efn plain-text-export}
+    {:id :json
+     :label "JSON"
+     :efn json-export}
+    {:id :leipzig-igt
+     :label "Leipzig IGT"
+     :efn leipzig-igt-export}
+    {:id :latex-expex
+     :label "LaTeX ExPex"
+     :efn expex/export}]))
 
 (defn export [export-id]
   (first (for [{:as e :keys [id]} exports

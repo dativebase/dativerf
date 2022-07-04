@@ -1,8 +1,7 @@
 (ns dativerf.models.source
   "Contains constructors for source maps, machinery for accessing source keys
   (which is non-standard), and helpers to get citation-related strings."
-  (:require [clojure.string :as str]
-            [dativerf.specs.source :as source-spec]
+  (:require [dativerf.utils :as utils]
             [dativerf.utils.bibtex :as bibtex]))
 
 (def default-write-source
@@ -131,16 +130,15 @@
        (merge fields))))
 
 ;; TODO: complete these as per above, but I'm not sure it's worth the effort.
-(defn incollection [key author title booktitle publisher year])
-(defn inproceedings [key author title booktitle year])
-(defn manual [key title])
-(defn mastersthesis [key author title school year])
-(defn misc [key])
-(defn phdthesis [key author title school year])
-(defn proceedings [key title year])
-(defn techreport [key author title institution year])
-(defn unpublished [key author title note])
-
+;; (defn incollection [key author title booktitle publisher year])
+;; (defn inproceedings [key author title booktitle year])
+;; (defn manual [key title])
+;; (defn mastersthesis [key author title school year])
+;; (defn misc [key])
+;; (defn phdthesis [key author title school year])
+;; (defn proceedings [key title year])
+;; (defn techreport [key author title institution year])
+;; (defn unpublished [key author title note])
 
 ;; Source getters (!)
 ;;
@@ -159,14 +157,12 @@
 
 (defn s-keys [source keys] (for [key keys] (s-get source key)))
 
-(defn empty-string->nil [s] (some-> s str/trim not-empty))
-
 (defn author-in-citation-form
   "Return an author in citation form (string) for the supplied source object.
   Falls back to the editor in citation form, else the title, else 'no author'."
   [{:as source}]
   (let [[author editor title] (s-keys source [:author :editor :title])
-        [author editor title] (map empty-string->nil [author editor title])]
+        [author editor title] (map utils/empty-string->nil [author editor title])]
     (cond author (bibtex/name-in-citation-form author)
           editor (bibtex/name-in-citation-form editor)
           title title

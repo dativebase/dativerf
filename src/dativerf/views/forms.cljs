@@ -358,10 +358,12 @@
   (when @(re-frame/subscribe [::subs/forms-export-interface-visible?])
     (let [export-fn (:efn (forms-exporter/export @(re-frame/subscribe
                                             [::subs/forms-export-format])))
+
+          user @(re-frame/subscribe [::subs/user])
           forms @(re-frame/subscribe
                   [::subs/forms-by-ids
                    @(re-frame/subscribe [::subs/forms-current-page-forms])])
-          export-string (export-fn (vals forms))]
+          export-string (export-fn (vals forms) {:user user})]
       [re-com/v-box
        :class (styles/export-interface)
        :children
