@@ -77,6 +77,7 @@
        :login/password ""
        :login/state :dativerf.fsms.login/is-ready
        :login/invalid-reason nil
+       :login/retries 0
        ;; forms browse state
        :forms-paginator/items-per-page 10
        :forms-paginator/current-page-forms []
@@ -96,6 +97,7 @@
        :forms/new-form-secondary-fields-visible? false
        :forms/form-to-delete nil
        :forms/force-reload? false
+       :forms-page/retries 0
        ;; routing state
        :forms/previous-route nil
        :forms/previous-browse-route nil

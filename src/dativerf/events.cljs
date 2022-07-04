@@ -590,32 +590,21 @@
                       :params {:page page
                                :items_per_page items-per-page}
                       :on-success [::forms-first-page-for-last-page-fetched]
-                      :on-failure [::forms-page-not-fetched
-                                   page items-per-page])})))
+                      :on-failure [::forms-first-page-for-last-page-not-fetched])})))
 
 ;; If the first page is also the last page we just merge the forms into the DB.
 ;; Otherwise, we navigate to the last forms page, which will trigger an
 ;; unambiguous page request for the last page.
-(re-frame/reg-event-fx
+(re-frame/reg-event-db
  ::forms-first-page-for-last-page-fetched
- (fn [{:keys [db]} [_ response]]
+ (fn [db [_ response]]
    (let [{:keys [forms forms-view-state paginator]}
-         (reformat-forms-response response db)
-         last-page (:forms-paginator/last-page paginator)
-         items-per-page (:forms-paginator/items-per-page paginator)
-         route {:handler :forms-page
-                :route-params
-                {:old (old-model/slug db)
-                 :items-per-page items-per-page
-                 :page last-page}}
-         fx {:db (-> db
-                     (update-in [:old-states (:old db) :forms] merge forms)
-                     (update-in [:old-states (:old db) :forms/view-state]
-                                merge forms-view-state)
-                     (merge paginator))}]
-     (if (= 1 last-page)
-       fx
-       (assoc fx :fx [[:dispatch [::navigate route]]])))))
+         (reformat-forms-response response db)]
+     (-> db
+         (update-in [:old-states (:old db) :forms] merge forms)
+         (update-in [:old-states (:old db) :forms/view-state]
+                    merge forms-view-state)
+         (merge paginator)))))
 
 (re-frame/reg-event-fx
  ::fetch-new-form-data
@@ -731,19 +720,44 @@
                        " with " items-per-page " items per page"))
             db))
 
+(re-frame/reg-event-fx
+ ::forms-first-page-for-last-page-not-fetched
+ (fn-traced [{:keys [db]} [_ response]]
+            (let [{:keys [forms-page/retries]} db
+                  status (:status response)]
+              (if (and (zero? status) (< retries 3))
+                {:db (update db :forms-page/retries inc)
+                 :fx [[:dispatch [::fetch-forms-last-page]]]}
+                (do
+                  (warn (str "failed to fetch forms first page for last page;"
+                             " response status:" status
+                             " retries: " retries))
+                  {:db (assoc db :forms-page/retries 0)})))))
+
 (re-frame/reg-event-db
  ::form-not-fetched
  (fn-traced [db [_ form-id]]
             (warn (str "failed to fetch form " form-id))
             db))
 
-(re-frame/reg-event-db
+(re-frame/reg-event-fx
  ::server-not-authenticated
- (fn-traced [db [event {:keys [response]}]]
-            (let [error-msg (:error response "Undetermined error.")]
-              (-> db
-                  (assoc :login/invalid-reason error-msg)
-                  (fsms/update-state login/state-machine :login/state event)))))
+ (fn-traced [{:keys [db]} [event {:keys [status response]}]]
+            (let [{:keys [login/username login/password login/retries]} db]
+              ;; TODO: what if status is zero but retries have been exhausted?
+              (if (and (zero? status) (< retries 3))
+                {:db (update db :login/retries inc)
+                 :http-xhrio
+                 (assoc post-request
+                        :uri (old/login-authenticate (old-model/old db))
+                        :params {:username username :password password}
+                        :on-success [::server-authenticated]
+                        :on-failure [::server-not-authenticated])}
+                {:db
+                 (-> db
+                     (assoc :login/invalid-reason (:error response "Undetermined error.")
+                            :login/retries 0)
+                     (fsms/update-state login/state-machine :login/state event))}))))
 
 (re-frame/reg-event-db
  ::applicationsettings-not-fetched
@@ -758,7 +772,6 @@
             ;; TODO handle this failure better. Probably logout and alert the user.
             (warn "failed to fetch forms/new for this OLD")
             db))
-
 
 (re-frame/reg-event-db
  ::server-not-deauthenticated
