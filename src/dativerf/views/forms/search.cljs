@@ -40,14 +40,15 @@
 (defn text-input [model]
     [re-com/h-box
        :gap "10px"
+       :justify :center
        :children
        [[re-com/input-text
          :change-on-blur? false
          :placeholder (model-placeholder model)
          :width "560px"
          :model @(re-frame/subscribe [model])
-         :attr {:on-key-up key-up-input}]]
-         :on-change (fn [val] ())])
+         :attr {:on-key-up key-up-input}
+         :on-change (fn [val] ())]]])
 
 (defn header-left []
   [re-com/h-box
