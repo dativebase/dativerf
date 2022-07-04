@@ -55,6 +55,7 @@
 (re-frame/reg-sub :new-form/status (fn [db] (:new-form/status db)))
 
 (re-frame/reg-sub :search-forms/search-input (fn [db] (:search-forms/search-input db)))
+(re-frame/reg-sub :search-forms/state (fn [db _] (:search-forms/state db)))
 
 (re-frame/reg-sub
  ::old-settings

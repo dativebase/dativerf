@@ -7,6 +7,7 @@
    [dativerf.fsms :as fsms]
    [dativerf.fsms.login :as login]
    [dativerf.fsms.new-form :as new-form-fsm]
+   [dativerf.fsms.search :as search]
    [dativerf.models.old :as old-model]
    [dativerf.models.form :as form-model]
    [dativerf.old :as old]
@@ -404,6 +405,13 @@
  (fn-traced [{:keys [db]} _]
             {:db db
              :dispatch [::initiated-deauthentication]}))
+
+(re-frame/reg-event-db
+  ::user-changed-search-input
+  (fn-traced [db [event input]]
+             (-> db
+                 (assoc :search-forms/search-input input)
+                 (fsms/update-state search/state-machine :search-forms/state event))))
 
 ;; Network Requests
 

@@ -35,9 +35,11 @@
       :model @(re-frame/subscribe [:search-forms/search-input])
       :attr {:auto-focus true
              :on-key-up key-up-input}
-      :on-change (fn [_] ())]]])
+      :on-change (fn [input] (re-frame/dispatch-sync
+                               [::events/user-changed-search-input
+                                input]))]]])
 
-(defn text-input [model]
+(defn text-input [model event]
     [re-com/h-box
        :gap "10px"
        :justify :center
@@ -48,7 +50,7 @@
          :width "560px"
          :model @(re-frame/subscribe [model])
          :attr {:on-key-up key-up-input}
-         :on-change (fn [val] ())]]])
+         :on-change (fn [val] (re-frame/dispatch-sync [event val]))]]])
 
 (defn header-left []
   [re-com/h-box
@@ -107,7 +109,8 @@
   [re-com/v-box
    :class (str (styles/v-box-gap-with-nils) " " (styles/objlang))
    :children
-   [[text-input :search-forms/search-input]]])
+   [[text-input :search-forms/search-input
+     ::events/user-changed-search-input]]])
 
 (defn search-button []
   [re-com/box
