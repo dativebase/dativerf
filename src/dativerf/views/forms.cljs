@@ -8,6 +8,7 @@
             [dativerf.utils :as utils]
             [dativerf.views.form :as form]
             [dativerf.views.forms.new :as forms-new]
+            [dativerf.views.forms.search :as forms-search]
             [dativerf.views.forms.settings :as forms-settings]
             [dativerf.exporters.forms :as forms-exporter]
             [dativerf.views.widgets :as widgets]))
@@ -111,8 +112,11 @@
   [re-com/md-circle-icon-button
    :md-icon-name "zmdi-search"
    :size :smaller
-   :tooltip "search"
-   :disabled? true])
+   :tooltip (if @(re-frame/subscribe [::subs/forms-search-interface-visible?])
+              "hide search interface"
+              "show search interface")
+   :on-click (fn [_] (re-frame/dispatch
+                       [::events/user-clicked-new-search-forms-button]))])
 
 (defn export-button []
   [re-com/md-circle-icon-button
@@ -379,6 +383,7 @@
    :children
    [[browse-navigation]
     [forms-settings/interface]
+    [forms-search/interface]
     [forms-new/interface]
     [export-forms-interface]
     [forms-enumeration]]])

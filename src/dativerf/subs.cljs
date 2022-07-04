@@ -54,6 +54,8 @@
 (re-frame/reg-sub :new-form/semantics (fn [db] (:new-form/semantics db)))
 (re-frame/reg-sub :new-form/status (fn [db] (:new-form/status db)))
 
+(re-frame/reg-sub :search-forms/search-input (fn [db] (:search-forms/search-input db)))
+
 (re-frame/reg-sub
  ::old-settings
  (fn [db _]
@@ -195,3 +197,7 @@
 (re-frame/reg-sub
  ::forms-new
  (fn [db _] (get-in db [:old-states (:old db) :forms-new])))
+
+(re-frame/reg-sub
+  ::forms-search-interface-visible?
+  (fn [db _] (:forms/search-interface-visible? db)))

@@ -60,6 +60,9 @@
    :new-form/semantics ""
    :new-form/status "tested"})
 
+(def default-search-state
+  {:search-forms/search-input ""})
+
 (def default-visible-form-fields
   (->> default-form-state (filter (comp :visible? val)) (map key) set))
 
@@ -89,6 +92,7 @@
        :forms/expanded? false
        :forms/export-interface-visible? false
        :forms/settings-interface-visible? false
+       :forms/search-interface-visible? false
        :forms/settings-field-visibility-interface-visible? false
        :forms/visible-fields default-visible-form-fields
        :forms/export-format :plain-text
@@ -104,7 +108,8 @@
        :new-form nil
        :new-form-field-specific-validation-error-messages {}
        :new-form-general-validation-error-message nil}
-      (merge default-new-form-state)))
+      (merge default-new-form-state)
+      (merge default-search-state)))
 
 (defn default-form-view-state [{:as _db :keys [forms/expanded?]}]
   {:expanded? expanded?
