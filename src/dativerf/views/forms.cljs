@@ -453,19 +453,12 @@
 
 (defmethod routes/tabs :forms-last-page [_]
   (let [last-page @(re-frame/subscribe [::subs/forms-last-page])
-        current-page @(re-frame/subscribe [::subs/forms-current-page])
-        form-ids @(re-frame/subscribe [::subs/forms-current-page-forms])
-        force-reload? @(re-frame/subscribe [::subs/forms-force-reload?])
-        forms (filter some?
-                      (for [form-id form-ids]
-                        @(re-frame/subscribe [::subs/form-by-id form-id])))]
+        force-reload? @(re-frame/subscribe [::subs/forms-force-reload?])]
     (cond force-reload?
           (do (re-frame/dispatch [::events/fetch-forms-last-page])
               (re-frame/dispatch [::events/turn-off-force-forms-reload])
               [re-com/throbber :size :large])
-          (and last-page
-               (= last-page current-page)
-               (= (count form-ids) (count forms)))
+          last-page
           (re-frame/dispatch
            [::events/navigate
             (assoc-in (forms-page-route) [:route-params :page] last-page)])
