@@ -3,6 +3,8 @@
    [ajax.core :as ajax]
    [clojure.string :as str]
    [cljs.pprint :as pprint]
+   [cljs-time.core :as time]
+   [cljs-time.coerce :as coerce]
    [dativerf.db :as db]
    [dativerf.fsms :as fsms]
    [dativerf.fsms.login :as login]
@@ -19,6 +21,7 @@
 
 (def app-dative-servers-url "https://app.dative.ca/servers.json")
 (def max-forms-in-memory 200)
+(def max-pages-in-memory 50) ;; max no. of keys in :forms-paginator/cache
 
 (defn- warn [msg] (println (str "WARNING: " msg)))
 
@@ -64,7 +67,6 @@
 (defn- forms->uuid-keyed-forms-map [forms fetched-at]
   (->> forms
        (map (comp
-             ;; TODO: fetched-at should be in view state, not in the data itself.
              #(assoc % :dative/fetched-at fetched-at)
              form-model/parse-form))
        (map (juxt :uuid identity))
@@ -99,11 +101,12 @@
                         (max 0 (- (* current-page items-per-page)
                                   (dec items-per-page))))
         last-form (min count (+ first-form (dec items-per-page)))
-        fetched-at (.now js/Date)
+        fetched-at (time/now)
         forms (forms->uuid-keyed-forms-map items fetched-at)
         forms-view-state (forms->view-states forms db)]
     {:forms forms
      :forms-view-state forms-view-state
+     :fetched-at fetched-at
      :paginator {:forms-paginator/items-per-page items-per-page
                  :forms-paginator/current-page-forms (mapv :uuid (sort-by :id (vals forms)))
                  :forms-paginator/current-page current-page
@@ -112,29 +115,39 @@
                  :forms-paginator/first-form first-form
                  :forms-paginator/last-form last-form}}))
 
-(defn- prune-forms
-  "Remove the oldest forms from the DB. We only keep the max-forms-in-memory
-  newest forms."
+(defn- prune-forms [db]
+  (let [forms (->> (get-in db [:old-states (:old db) :forms])
+                   vals
+                   (sort-by (comp coerce/to-long :dative/fetched-at))
+                   (drop (max 0 (- (count (get-in db [:old-states (:old db) :forms]))
+                                   max-forms-in-memory)))
+                   (map (juxt :uuid identity))
+                   (into {}))]
+    (-> db
+        (assoc-in [:old-states (:old db) :forms] forms)
+        (assoc-in [:old-states (:old db) :forms/view-state]
+                  (-> db
+                      (get-in [:old-states (:old db)
+                               :forms/view-state])
+                      (select-keys (keys forms)))))))
+
+(defn- prune-pages [db]
+  (update db
+          :forms-paginator/cache
+          (fn [cache]
+            (->> cache
+                 (sort-by (comp coerce/to-long :fetched-at val))
+                 (drop (max 0 (- (count (:forms-paginator/cache db))
+                                 max-pages-in-memory)))
+                 (into {})))))
+
+(defn- prune-caches
+  "Remove the stale caches of forms and pages from the DB. We only keep the
+  max-forms-in-memory newest forms and max-pages-in-memory newest pages.
+  TODO: we should probably prune the cache based on absolute age of the cached
+  items, but the current strategy is probably fine for now."
   [db]
-  (let [forms (get-in db [:old-states (:old db) :forms])
-        form-count (count forms)
-        to-drop (max 0 (- form-count max-forms-in-memory))]
-    (if (zero? to-drop)
-      db
-      (let [forms (->> forms
-                       vals
-                       (sort-by :dative/fetched-at)
-                       (drop to-drop)
-                       (map (juxt :uuid identity))
-                       (into {}))
-            forms-view-state (-> db
-                                 (get-in [:old-states (:old db)
-                                          :forms/view-state])
-                                 (select-keys (keys forms)))]
-        (-> db
-            (assoc-in [:old-states (:old db) :forms] forms)
-            (assoc-in [:old-states (:old db) :forms/view-state]
-                      forms-view-state))))))
+  (-> db prune-forms prune-pages))
 
 (re-frame/reg-event-db ::initialize-db (fn-traced [_ _] db/default-db))
 
@@ -565,14 +578,30 @@
 (re-frame/reg-event-fx
  ::fetch-forms-page
  (fn-traced [{:keys [db]} [_ page items-per-page]]
-            {:http-xhrio
-             (assoc get-request
-                    :uri (-> db old-model/old old/forms)
-                    :params {:page page
-                             :items_per_page items-per-page}
-                    :on-success [::forms-page-fetched]
-                    :on-failure [::forms-page-not-fetched
-                                 page items-per-page])}))
+            (let [items-per-page (js/parseInt items-per-page)]
+              (if-let [cached-page
+                       (get-in db [:forms-paginator/cache
+                                   {:page page
+                                    :items-per-page items-per-page}])]
+                (let [first-form (min (inc (:forms-paginator/count db))
+                                      (max 0 (- (* page items-per-page)
+                                                (dec items-per-page))))]
+                  {:db (assoc db
+                              :forms-paginator/items-per-page items-per-page
+                              :forms-paginator/current-page-forms (:form-uuids cached-page)
+                              :forms-paginator/current-page page
+                              :forms-paginator/first-form first-form
+                              :forms-paginator/last-form
+                              (min (:forms-paginator/count db)
+                                   (+ first-form (dec items-per-page))))})
+                {:http-xhrio
+                 (assoc get-request
+                        :uri (-> db old-model/old old/forms)
+                        :params {:page page
+                                 :items_per_page items-per-page}
+                        :on-success [::forms-page-fetched]
+                        :on-failure [::forms-page-not-fetched
+                                     page items-per-page])}))))
 
 ;; Context:
 ;; To get the last page of an OLD's forms set, it is necessary to first make a
@@ -657,7 +686,7 @@
 
 (re-frame/reg-event-fx
  ::server-deauthenticated
- (fn-traced [{:keys [db]} [event _]]
+ (fn-traced [{:keys [db]} _]
             {:db (db/soft-reset-dative-state db)
              :fx [[:dispatch [::navigate {:handler :login}]]]}))
 
@@ -665,25 +694,32 @@
  ::form-fetched
  (fn-traced [db [_event response]]
             (let [form (utils/->kebab-case-recursive response)
-                  fetched-at (.now js/Date)
+                  fetched-at (time/now)
                   forms (forms->uuid-keyed-forms-map [form] fetched-at)
                   forms-view-state (forms->view-states forms db)]
               (-> db
                   (update-in [:old-states (:old db) :forms] merge forms)
                   (update-in [:old-states (:old db) :forms/view-state]
                              merge forms-view-state)
-                  prune-forms))))
+                  prune-caches))))
 
 (re-frame/reg-event-db
  ::forms-page-fetched
  (fn-traced [db [_event response]]
-            (let [{:keys [forms forms-view-state paginator]}
-                  (reformat-forms-response response db)]
+            (let [{:keys [fetched-at forms forms-view-state paginator]}
+                  (reformat-forms-response response db)
+                  {:keys [forms-paginator/items-per-page
+                          forms-paginator/current-page-forms
+                          forms-paginator/current-page]} paginator]
               (-> db
                   (update-in [:old-states (:old db) :forms] merge forms)
                   (update-in [:old-states (:old db) :forms/view-state]
                              merge forms-view-state)
-                  prune-forms
+                  (assoc-in [:forms-paginator/cache {:page current-page
+                                                     :items-per-page items-per-page}]
+                            {:form-uuids current-page-forms
+                             :fetched-at fetched-at})
+                  prune-caches
                   (merge paginator)))))
 
 ;; Network Failure Events
@@ -764,7 +800,7 @@
 
 (re-frame/reg-event-db
  ::server-not-deauthenticated
- (fn-traced [db [event _]]
+ (fn-traced [db _]
             (warn "Failed to logout of OLD.")
             (db/soft-reset-dative-state db)))
 
