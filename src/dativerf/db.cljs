@@ -87,6 +87,7 @@
        :forms-paginator/count 0
        :forms-paginator/first-form 0
        :forms-paginator/last-form 0
+       :forms-paginator/cache {}
        :forms/labels-on? false
        :forms/expanded? false
        :forms/export-interface-visible? false
@@ -117,7 +118,7 @@
 
 (defn soft-reset-dative-state
   "Reset state to default but keep our OLDs so we can login again."
-  [{:keys [olds] :as db}]
+  [{:keys [olds]}]
   (if (seq olds)
     (assoc default-db :olds olds)
     default-db))
