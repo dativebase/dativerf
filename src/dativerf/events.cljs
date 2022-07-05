@@ -589,22 +589,8 @@
                       :uri (-> db old-model/old old/forms)
                       :params {:page page
                                :items_per_page items-per-page}
-                      :on-success [::forms-first-page-for-last-page-fetched]
+                      :on-success [::forms-page-fetched]
                       :on-failure [::forms-first-page-for-last-page-not-fetched])})))
-
-;; If the first page is also the last page we just merge the forms into the DB.
-;; Otherwise, we navigate to the last forms page, which will trigger an
-;; unambiguous page request for the last page.
-(re-frame/reg-event-db
- ::forms-first-page-for-last-page-fetched
- (fn [db [_ response]]
-   (let [{:keys [forms forms-view-state paginator]}
-         (reformat-forms-response response db)]
-     (-> db
-         (update-in [:old-states (:old db) :forms] merge forms)
-         (update-in [:old-states (:old db) :forms/view-state]
-                    merge forms-view-state)
-         (merge paginator)))))
 
 (re-frame/reg-event-fx
  ::fetch-new-form-data
@@ -672,11 +658,7 @@
 (re-frame/reg-event-fx
  ::server-deauthenticated
  (fn-traced [{:keys [db]} [event _]]
-            {:db (-> db
-                     (assoc :user nil)
-                     (update :old-states
-                             (fn [old-states] (dissoc old-states (:old db))))
-                     (transition-login-fsm event))
+            {:db (db/soft-reset-dative-state db)
              :fx [[:dispatch [::navigate {:handler :login}]]]}))
 
 (re-frame/reg-event-db
@@ -784,12 +766,7 @@
  ::server-not-deauthenticated
  (fn-traced [db [event _]]
             (warn "Failed to logout of OLD.")
-            (-> db
-                (assoc :user nil
-                       :active-route {:handler :login})
-                (update :old-states
-                        (fn [old-states] (dissoc old-states (:old db))))
-                (transition-login-fsm event))))
+            (db/soft-reset-dative-state db)))
 
 ;; Forms Browse Navigation Events
 

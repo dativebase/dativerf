@@ -66,9 +66,9 @@
 (def default-db
   (-> {:name "Dative"
        :active-route {:handler :home}
-       :olds []
+       :olds [] ;; the OLDs from servers.json from Dative static
        :old nil
-       :old-states {}
+       :old-states {} ;; the cache of OLD-specific state: forms, resources, form-specific view state, etc.
        :user nil
        :system/error nil
        ;; settings state
@@ -114,3 +114,10 @@
   {:expanded? expanded?
    :export-interface-visible? false
    :export-format :plain-text})
+
+(defn soft-reset-dative-state
+  "Reset state to default but keep our OLDs so we can login again."
+  [{:keys [olds] :as db}]
+  (if (seq olds)
+    (assoc default-db :olds olds)
+    default-db))
