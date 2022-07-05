@@ -809,20 +809,21 @@
 (re-frame/reg-event-fx
  ::user-changed-items-per-page
  (fn [{:keys [db]} [_ items-per-page]]
-            (let [first-form (:forms-paginator/first-form db)
-                  current-page (Math/ceil (/ first-form items-per-page))
-                  last-page (Math/ceil (/ (:forms-paginator/count db)
-                                          items-per-page))
-                  route {:handler :forms-page
-                         :route-params
-                         {:old (old-model/slug db)
-                          :items-per-page items-per-page
-                          :page current-page}}]
-              {:db (assoc db
-                          :forms-paginator/items-per-page items-per-page
-                          :forms-paginator/current-page current-page
-                          :forms-paginator/last-page last-page)
-               :fx [[:dispatch [::navigate route]]]})))
+   (let [first-form (:forms-paginator/first-form db)
+         current-page (Math/ceil (/ first-form items-per-page))
+         last-page (Math/ceil (/ (:forms-paginator/count db)
+                                 items-per-page))
+         route {:handler :forms-page
+                :route-params
+                {:old (old-model/slug db)
+                 :items-per-page items-per-page
+                 :page current-page}}]
+     {:db (assoc db
+                 :forms/force-reload? true
+                 :forms-paginator/items-per-page items-per-page
+                 :forms-paginator/current-page current-page
+                 :forms-paginator/last-page last-page)
+      :fx [[:dispatch [::navigate route]]]})))
 
 ;; "New Form" interface events
 

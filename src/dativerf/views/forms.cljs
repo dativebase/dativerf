@@ -445,9 +445,16 @@
         forms (filter some?
                       (for [form-id form-ids]
                         @(re-frame/subscribe [::subs/form-by-id form-id])))]
-    (if (or (zero? forms-count)
-            (and (= page current-page) (= (count form-ids) (count forms))))
+    (cond
+      @(re-frame/subscribe [::subs/forms-force-reload?])
+      (do (re-frame/dispatch [::events/turn-off-force-forms-reload])
+          (re-frame/dispatch [::events/fetch-forms-page page
+                              @(re-frame/subscribe [::subs/forms-items-per-page])])
+          [re-com/throbber :size :large])
+      (or (zero? forms-count)
+          (and (= page current-page) (= (count form-ids) (count forms))))
       [forms-tab]
+      :else
       (do (re-frame/dispatch [::events/fetch-forms-page page items-per-page])
           [re-com/throbber :size :large]))))
 
