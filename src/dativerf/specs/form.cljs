@@ -7,21 +7,13 @@
             [dativerf.specs.common :as common]
             [dativerf.specs.file :as file]
             [dativerf.specs.source :as source]
+            [dativerf.specs.user :as user]
             [dativerf.utils :as utils]
             [goog.string :as gstring]
             [goog.string.format]))
 
 ;; TODO: this ns is called form but there are specs for all types of resources
 ;; in here.
-
-(s/def :user/id ::common/id)
-(s/def :user/first-name string?)
-(s/def :user/last-name string?)
-(s/def :user/role #{"administrator" "contributor" "viewer"})
-(s/def ::user (s/keys :req-un [:user/id
-                               :user/first-name
-                               :user/last-name
-                               :user/role]))
 
 (s/def :tag/id ::common/id)
 (s/def :tag/name string?)
@@ -74,13 +66,13 @@
 (s/def :form/tags ::tags)
 (s/def :form/date-elicited (s/nilable ::common/date-string))
 (s/def :form/narrow-phonetic-transcription string?)
-(s/def :form/enterer (s/nilable ::user))
+(s/def :form/enterer (s/nilable ::user/mini-user))
 ;; TODO: datetime-entered should not be nilable, but OLDs do have forms with a
 ;; nil value here...
 (s/def :form/datetime-entered (s/nilable ::common/datetime-string))
-(s/def :form/verifier (s/nilable ::user))
+(s/def :form/verifier (s/nilable ::user/mini-user))
 (s/def :form/break-gloss-category string?)
-(s/def :form/modifier (s/nilable ::user))
+(s/def :form/modifier (s/nilable ::user/mini-user))
 (s/def :form/syntactic-category (s/nilable ::syntactic-category))
 (s/def :form/speaker-comments string?)
 ;; TODO: better spec for morpheme-gloss-ids
@@ -105,7 +97,7 @@
 (s/def :form/morpheme-break-ids (s/nilable (s/coll-of any?)))
 (s/def :form/phonetic-transcription string?)
 (s/def :form/transcription string?)
-(s/def :form/elicitor (s/nilable ::user))
+(s/def :form/elicitor (s/nilable ::user/mini-user))
 (s/def :form/translations ::translations)
 
 (s/def ::form (s/keys :req-un [:form/tags
