@@ -30,6 +30,14 @@
    :overflow "hidden"
    :color :gray})
 
+(declare wider-attr-label)
+(defclass wider-attr-label []
+  {:width "250px"
+   :text-overflow "ellipsis"
+   :white-space "nowrap"
+   :overflow "hidden"
+   :color :gray})
+
 (declare objlang)
 (defclass objlang []
   {:font-family "'GentiumPlus', serif"

@@ -6,11 +6,11 @@
 (s/def ::name (partial common/string-max-len? 255))
 (s/def ::orthography string?)
 (s/def ::lowercase boolean?)
-(s/def ::initial_glottal_stops boolean?)
+(s/def ::initial-glottal-stops boolean?)
 
 (s/def ::mini-orthography (s/keys :req-un [::id
                                            ::name
                                            ::orthography
                                            ::lowercase
-                                           ::initial_glottal_stops]))
+                                           ::initial-glottal-stops]))
 (s/def ::mini-orthographies (s/coll-of ::mini-orthography))
