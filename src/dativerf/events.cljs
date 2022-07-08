@@ -9,8 +9,9 @@
    [dativerf.fsms :as fsms]
    [dativerf.fsms.login :as login]
    [dativerf.fsms.new-form :as new-form-fsm]
-   [dativerf.models.old :as old-model]
+   [dativerf.models.application-settings :as application-settings]
    [dativerf.models.form :as form-model]
+   [dativerf.models.old :as old-model]
    [dativerf.old :as old]
    [dativerf.specs.form :as form-specs]
    [dativerf.utils :as utils]
@@ -639,6 +640,15 @@
                     :on-success [::applicationsettings-fetched]
                     :on-failure [::applicationsettings-not-fetched])}))
 
+(re-frame/reg-event-fx
+ ::fetch-unicode-data
+ (fn-traced [_ _]
+            {:http-xhrio
+             (assoc get-request
+                    :uri "/UnicodeData.json"
+                    :on-success [::unicode-data-fetched]
+                    :on-failure [::unicode-data-not-fetched])}))
+
 ;; Network Success Events
 
 (re-frame/reg-event-fx
@@ -661,12 +671,30 @@
 
 (re-frame/reg-event-db
  ::applicationsettings-fetched
- (fn-traced [db [_event application-settings-entities]]
-            (assoc-in
-             db
-             [:old-states (:old db) :application-settings]
-             (utils/->kebab-case-recursive
-              (last application-settings-entities)))))
+ (fn-traced [db [_ response]]
+            (try
+              (assoc-in
+               db
+               [:old-states (:old db) :application-settings]
+               (application-settings/process-fetch-response response))
+              (catch ExceptionInfo e
+                (warn "The application settings fetched from the OLD are invalid.")
+                (assoc db
+                       :system/error
+                       (if (= :invalid-application-settings (-> e ex-data :error-code))
+                         (do (pprint/pprint (-> e ex-data :explain-data))
+                             :application-settings-invalid-by-spec)
+                         :application-settings-invalid))))))
+
+(re-frame/reg-event-db
+ ::unicode-data-fetched
+ (fn-traced [db [_ response]]
+            (assoc db :unicode-data response)))
+
+(re-frame/reg-event-db
+ ::unicode-data-not-fetched
+ (fn-traced [db _]
+            (assoc db :system/error :unicode-data-not-fetched)))
 
 (re-frame/reg-event-db
  ::forms-new-fetched

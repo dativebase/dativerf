@@ -119,3 +119,46 @@
 (defn empty-string->nil [s] (some-> s str/trim not-empty))
 
 (defn get-empty-string->nil [m k] (some-> m k empty-string->nil))
+
+(defn- decimal->hex [decimal]
+  (let [hex-string (.toString (js/BigInt decimal) 16)]
+    (str (apply str (repeat (- 4 (count hex-string)) "0"))
+         hex-string)))
+
+(defn unicode-inspect
+  "Inspect all graphemes (characters) in graph (string) and return a vector of
+  maps, one for each inspected grapheme. Each map has two keys :unicode and
+  :name. The :unicode key is the Unicode code point of the grapheme, with a U+
+  prefix. The :name is the canonical name of the grapheme. A map from code
+  points to names must be supplied as a second argument in order to get names in
+  the output. Example:
+    (unicode-inspect á {0061 LATIN SMALL LETTER A 0301 COMBINING ACUTE ACCENT})
+    [{:unicode U+0061, :name LATIN SMALL LETTER A}
+     {:unicode U+0301, :name COMBINING ACUTE ACCENT}]
+  Note: Dative must fetch the names map as a JSON file from the server as a file
+  called UnicodeData.json."
+  ([graph] (unicode-inspect graph {}))
+  ([graph names]
+   (->> (.normalize graph "NFD")
+        (mapv (fn [grapheme]
+                (let [unicode (-> grapheme
+                                  (.charCodeAt 0)
+                                  decimal->hex
+                                  str/upper-case)]
+                  {:unicode (str "U+" unicode)
+                   :name (get names (keyword unicode))}))))))
+
+(defn parse-comma-delimited-string [s]
+  (if (str/blank? s)
+    []
+    (-> s
+        str/trim
+        (str/split #"[ ]*,[ ]*"))))
+
+;; This could be done with a regex, but this seems fine
+(defn remove-enclosing-brackets [s]
+  (cond-> s
+    (= \[ (first s))
+    (->> (drop 1) (apply str))
+    (= \] (last s))
+    (->> butlast (apply str))))

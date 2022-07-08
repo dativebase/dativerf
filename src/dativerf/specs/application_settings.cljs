@@ -1,17 +1,22 @@
 (ns dativerf.specs.application-settings
   (:require [clojure.spec.alpha :as s]
+            [clojure.set :as set]
             [dativerf.specs.common :as common]
             [dativerf.specs.language :as language]
             [dativerf.specs.orthography :as orthography]
             [dativerf.specs.user :as user]))
 
 (def validation-values
-  {"None" :none
+  {"None" nil
    "Warning" :warning
    "Error" :error})
+(def validation-internal-values (set/map-invert validation-values))
 (def read-validation-value? (set (keys validation-values)))
 (def write-validation-value? (set (vals validation-values)))
 
+;; Note: most of the following keys are actually nilable in the OLD database.
+;; However, the OLD sets a default application settings on initialization such
+;; that all of the string values have sensible string defaults.
 (s/def ::id ::common/id)
 (s/def ::object-language-name (partial common/string-max-len? 255))
 (s/def ::object-language-id (partial common/string-max-len? 3))
@@ -30,9 +35,9 @@
 (s/def ::punctuation string?)
 (s/def ::grammaticalities (partial common/string-max-len? 255))
 (s/def ::datetime-modified ::common/datetime-string)
-(s/def ::storage-orthography ::orthography/mini-orthography)
-(s/def ::input-orthography ::orthography/mini-orthography)
-(s/def ::output-orthography ::orthography/mini-orthography)
+(s/def ::storage-orthography (s/nilable ::orthography/mini-orthography))
+(s/def ::input-orthography (s/nilable ::orthography/mini-orthography))
+(s/def ::output-orthography (s/nilable ::orthography/mini-orthography))
 (s/def ::unrestricted-users ::user/mini-users)
 
 (s/def ::application-settings (s/keys :req-un [::id
@@ -100,5 +105,9 @@
 (s/def ::new-data (s/keys :req-un [::language/languages
                                    ::orthographies
                                    ::users]))
+
+(def application-settings-valid? (partial s/valid? ::application-settings))
+(def application-settings-explain-data (partial s/explain-data ::application-settings))
+
 
 ;; NOTE: all seeming app settings updates are actually creates, ie POST requests.

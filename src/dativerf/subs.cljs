@@ -16,6 +16,7 @@
 (re-frame/reg-sub ::active-settings-tab (fn [db _] (:settings/active-tab db)))
 
 (re-frame/reg-sub ::system-error (fn [db _] (:system/error db)))
+(re-frame/reg-sub ::unicode-data (fn [db _] (:unicode-data db)))
 
 (re-frame/reg-sub :login/username (fn [db] (:login/username db)))
 (re-frame/reg-sub :login/password (fn [db] (:login/password db)))

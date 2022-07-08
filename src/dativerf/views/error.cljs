@@ -8,6 +8,10 @@
   "Try navigating to the home page and then retry what you were doing.
   If that doesn't work, try reloading the page.")
 
+(def invalid-application-settings
+  (str "Sadly the application settings fetched from the OLD do not appear to be"
+       " valid. " generic-advice))
+
 (def errors
   {:default
    (str "Oops! An unidentified error occurred. " generic-advice)
@@ -24,7 +28,13 @@
         " credentials but all three attempts failed! " generic-advice)
    :authenticate-failed
    (str "Tarnation! Your attempt to authenticated failed in an unexpected"
-        " manner." generic-advice)})
+        " manner." generic-advice)
+   :application-settings-invalid-by-spec invalid-application-settings
+   :application-settings-invalid invalid-application-settings
+   :unicode-data-not-fetched
+   (str "Sadly Dative was unable to fetch the Unicode data that allows it to"
+        " name the characters used in orthographies and inventories. "
+        generic-advice)})
 
 (defn modal []
   (when-let [system-error @(re-frame/subscribe [::subs/system-error])]
