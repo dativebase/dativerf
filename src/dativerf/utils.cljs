@@ -1,6 +1,7 @@
 (ns dativerf.utils
   (:require [camel-snake-kebab.core :as csk]
             [cljs.pprint :as pprint]
+            [cljs-time.core :as time]
             [cljs-time.format :as timef]
             [clojure.string :as str]
             [clojure.walk :as walk]
@@ -9,6 +10,11 @@
 
 (defn commatize [number]
   (pprint/cl-format nil "~,,',:D" number))
+
+(defn capitalize-words [string]
+  (->> (str/split string #"\s+")
+       (map str/capitalize)
+       (str/join " ")))
 
 (defn kebab->space [s] (str/replace s #"-" " "))
 
@@ -55,7 +61,8 @@
   {:forms-last-page :forms
    :form-page :forms
    :forms-page :forms
-   :old-settings-input-validation :old-settings})
+   :old-settings-input-validation :old-settings
+   :old-settings-edit :old-settings})
 
 (def tab->handler
   {:forms :forms-last-page})
@@ -162,3 +169,7 @@
     (->> (drop 1) (apply str))
     (= \] (last s))
     (->> butlast (apply str))))
+
+(defn seconds-ago [t]
+  (try (time/in-seconds (time/interval t (time/now)))
+       (catch js/Error _ 0)))

@@ -2,8 +2,10 @@
   (:require
    [re-frame.core :as re-frame]
    [dativerf.fsms.login :as login]
+   [dativerf.models.application-settings :as application-settings]
    [dativerf.models.form :as form-model]
-   [dativerf.models.old :as old-model]))
+   [dativerf.models.old :as old-model]
+   [dativerf.utils :as utils]))
 
 (re-frame/reg-sub ::name (fn [db] (:name db)))
 (re-frame/reg-sub ::old (fn [db] (:old db)))
@@ -13,7 +15,17 @@
 (re-frame/reg-sub ::re-pressed-example (fn [db _] (:re-pressed-example db)))
 (re-frame/reg-sub ::user (fn [db] (:user db)))
 
+(re-frame/reg-sub
+ ::old-name
+ :<- [::old]
+ :<- [::olds]
+ (fn [[old-id olds] _] (old-model/name* {:old old-id :olds olds})))
+
 (re-frame/reg-sub ::active-settings-tab (fn [db _] (:settings/active-tab db)))
+(re-frame/reg-sub ::general-settings-edit-interface-visible?
+                  (fn [db _] (:settings/general-edit-interface-visible? db)))
+(re-frame/reg-sub ::input-validation-settings-edit-interface-visible?
+                  (fn [db _] (:settings/input-validation-edit-interface-visible? db)))
 
 (re-frame/reg-sub ::system-error (fn [db _] (:system/error db)))
 (re-frame/reg-sub ::unicode-data (fn [db _] (:unicode-data db)))
@@ -22,6 +34,55 @@
 (re-frame/reg-sub :login/password (fn [db] (:login/password db)))
 (re-frame/reg-sub :login/state (fn [db _] (:login/state db)))
 (re-frame/reg-sub :login/invalid-reason (fn [db _] (:login/invalid-reason db)))
+
+;; "Edit Application Settings" interface subscriptions
+(doseq [k application-settings/editable-keys]
+  (re-frame/reg-sub
+   (keyword "edited-settings" k)
+   (fn [db] (application-settings/edited-setting db k))))
+
+(defn edited-application-setting [db k]
+  (get-in db [:settings/edited-settings k]
+        ;; default to the most recent value fetched from the OLD
+          (-> db
+              (get-in [:old-states (:old db) :application-settings])
+              application-settings/read-settings->write-settings
+              k)))
+
+(re-frame/reg-sub
+ :settings/edited-settings-changed?
+ (fn [db] (let [server-settings
+                (application-settings/read-settings->write-settings
+                 (get-in db [:old-states (:old db) :application-settings]))
+                local-settings (application-settings/edited-settings db)]
+            (not= local-settings server-settings))))
+
+(re-frame/reg-sub ::languages
+                  (fn [db]
+                    (get-in db [:old-states (:old db) :languages :items])))
+
+(re-frame/reg-sub ::mini-users
+                  (fn [db]
+                    (get-in db [:old-states (:old db) :mini-users :items])))
+
+(re-frame/reg-sub ::mini-orthographies
+                  (fn [db]
+                    (get-in db [:old-states (:old db) :mini-orthographies :items])))
+
+;; TODO: is this subscription needed any longer?
+(re-frame/reg-sub ::settings-new-data-present?
+                  (fn [db]
+                    (let [{:keys [mini-users mini-orthographies languages]}
+                          (get-in db [:old-states (:old db)])
+                          users-fresh?
+                          (and mini-users
+                               (< (utils/seconds-ago (:dative/fetched-at mini-users))
+                                  5))
+                          orthographies-fresh?
+                          (and mini-orthographies
+                               (< (utils/seconds-ago (:dative/fetched-at mini-orthographies))
+                                  5))]
+                      (and languages users-fresh? orthographies-fresh?))))
 
 ;; "New Form" interface subscriptions
 (re-frame/reg-sub :new-form/narrow-phonetic-transcription
@@ -110,6 +171,14 @@
  :new-form/field-specific-validation-error-message
  (fn [db [_ field]] (-> db
                         :new-form-field-specific-validation-error-messages
+                        field)))
+
+(re-frame/reg-sub :edited-settings/state
+                  (fn [db _] (:settings/edited-settings-state db)))
+(re-frame/reg-sub
+ :settings-edit/field-specific-validation-error-message
+ (fn [db [_ field]] (-> db
+                        :edited-settings-field-specific-validation-error-messages
                         field)))
 
 ;; Forms Browse Navigation Subscriptions

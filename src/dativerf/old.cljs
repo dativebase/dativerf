@@ -7,6 +7,7 @@
     (str url "/")))
 
 (defn applicationsettings [old] (str (url old) "applicationsettings"))
+(defn applicationsettings-new [old] (str (url old) "applicationsettings/new"))
 (defn forms-new [old] (str (url old) "forms/new"))
 (defn formsearches-new [old] (str (url old) "formsearches/new"))
 (defn forms [old] (str (url old) "forms"))
