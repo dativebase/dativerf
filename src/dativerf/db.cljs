@@ -73,6 +73,9 @@
        :system/error nil
        ;; settings state
        :settings/active-tab :server
+       ;; edited settings state
+       :settings/edited-settings-state :dativerf.fsms.edit-settings/ready
+       :settings/edited-settings {}
        ;; login state
        :login/username ""
        :login/password ""

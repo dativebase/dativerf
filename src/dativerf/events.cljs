@@ -9,10 +9,12 @@
    [dativerf.fsms :as fsms]
    [dativerf.fsms.login :as login]
    [dativerf.fsms.new-form :as new-form-fsm]
+   [dativerf.fsms.edit-settings :as application-settings-edit-fsm]
    [dativerf.models.application-settings :as application-settings]
    [dativerf.models.form :as form-model]
    [dativerf.models.old :as old-model]
    [dativerf.old :as old]
+   [dativerf.specs.application-settings :as settings-specs]
    [dativerf.specs.form :as form-specs]
    [dativerf.utils :as utils]
    [day8.re-frame.tracing :refer-macros [fn-traced defn-traced]]
@@ -51,7 +53,11 @@
          ::user-clicked-toggle-form-field-visibility-interface
          [:forms/settings-field-visibility-interface-visible?]
          ::user-clicked-new-form-button
-         [:forms/new-form-interface-visible?]}]
+         [:forms/new-form-interface-visible?]
+         ::user-clicked-edit-general-settings-button
+         [:settings/general-edit-interface-visible?]
+         ::user-clicked-edit-input-validation-settings-button
+         [:settings/input-validation-edit-interface-visible?]}]
   (register-toggler event path))
 
 (def get-request
@@ -296,7 +302,7 @@
 (defn- cache-new-form [db]
   (let [new-form (form-model/new-form db)]
     (assoc db
-           :new-form new-form
+           :new-form new-form ;; TODO: is this every used?
            :new-form-field-specific-validation-error-messages
            (form-model/new-form-field-specific-validation-error-messages new-form))))
 
@@ -319,6 +325,37 @@
 (doseq [event [::new-form-data-invalid
                ::no-op]]
   (re-frame/reg-event-db event transition-new-form-fsm-db-handler))
+
+;; Edited Settings Form Events
+
+(defn- cache-edited-settings [db]
+  (let [edited-settings (application-settings/edited-settings db)]
+    (assoc db
+           :edited-settings edited-settings
+           :edited-settings-field-specific-validation-error-messages
+           (application-settings/edited-settings-field-specific-validation-error-messages
+            edited-settings))))
+
+(defn- invalidate-edited-settings-cache [db]
+  (assoc db
+         :edited-settings nil
+         :edited-settings-general-validation-error-message nil
+         :edited-settings-field-specific-validation-error-messages {}))
+
+(defn-traced transition-edited-settings-fsm [db event]
+  (fsms/update-state db application-settings-edit-fsm/state-machine
+                     :settings/edited-settings-state event))
+
+(defn-traced transition-edited-settings-fsm-db-handler [db [event]]
+  (cond-> db
+    :always
+    (transition-edited-settings-fsm event)
+    (= ::edited-settings-data-invalid event)
+    cache-edited-settings))
+
+(doseq [event [::edited-settings-data-invalid
+               ::no-op]]
+  (re-frame/reg-event-db event transition-edited-settings-fsm-db-handler))
 
 ;; Login Page/Form Events
 
@@ -451,6 +488,18 @@
                     :on-failure [::form-not-created])}))
 
 (re-frame/reg-event-fx
+ ::initiated-settings-update
+ (fn-traced [{:keys [db]} [event]]
+            {:db (transition-edited-settings-fsm db event)
+             :http-xhrio
+             (assoc post-request ;; settings updates are actually creates. shh.
+                    :uri (old/applicationsettings (old-model/old db))
+                    :params (utils/->snake-case-recursive
+                             (application-settings/edited-settings db))
+                    :on-success [::settings-updated]
+                    :on-failure [::settings-not-updated])}))
+
+(re-frame/reg-event-fx
  ::delete-form
  (fn-traced [{:keys [db]} [_ form-int-id]]
             {:db (assoc db :forms/form-to-delete nil)
@@ -504,6 +553,29 @@
                 (merge db/default-new-form-state)
                 (update-db-given-created-form new-form))))
 
+(re-frame/reg-event-db
+ ::settings-updated
+ (fn-traced [db [event response]]
+            (let [new-db
+                  (-> db
+                      (transition-edited-settings-fsm event)
+                      invalidate-edited-settings-cache
+                      (assoc :settings/edited-settings {}))]
+              (try (-> new-db
+                       (assoc-in [:old-states (:old db) :application-settings]
+                                 (application-settings/process-create-response response))
+                       (assoc :settings/general-edit-interface-visible? false
+                              :settings/input-validation-edit-interface-visible? false))
+                   (catch ExceptionInfo e
+                     (warn (str "The application settings returned by the OLD"
+                                " (after a successful POST request) are"
+                                " invalid."))
+                     (assoc new-db
+                            :system/error
+                            (if (= :invalid-application-settings (-> e ex-data :error-code))
+                              :application-settings-invalid-by-spec
+                              :application-settings-invalid)))))))
+
 (re-frame/reg-event-fx
  ::form-deleted
  (fn-traced [{{:as db :keys [forms-paginator/current-page
@@ -530,7 +602,7 @@
                                   dissoc deleted-form-uuid))
                :fx [[:dispatch dispatch]]})))
 
-(defn- format-server-validation-errors
+(defn- format-new-form-server-validation-errors
   "Unfortunately, the OLD's validation responses are not very regular. We
   regularize them here."
   [errors]
@@ -554,12 +626,44 @@
               (pprint/pprint r))
             (when (and errors (= 400 status))
               (pprint/pprint
-               (format-server-validation-errors errors)))
+               (format-new-form-server-validation-errors errors)))
             (cond-> db
               :always
               (transition-new-form-fsm event)
               (and errors (= 400 status))
-              (merge (format-server-validation-errors errors)))))
+              (merge (format-new-form-server-validation-errors errors)))))
+
+(defn- format-new-settings-server-validation-errors
+  "Unfortunately, the OLD's validation responses are not very regular. We
+  regularize them here."
+  [errors]
+  (if (string? errors)
+    {:edited-settings-general-validation-error-message errors}
+    {:edited-settings-field-specific-validation-error-messages
+     (->> (utils/->kebab-case-recursive errors)
+          (map (juxt key (comp (fn [v] (if (coll? v)
+                                         (first v)
+                                         v)) val)))
+          (into {}))}))
+
+(re-frame/reg-event-db
+ ::settings-not-updated
+ (fn-traced [db [event {:as r :keys [status] {:keys [errors]} :response}]]
+            ;; TODO: this when indicates a non-validation error response from
+            ;; the OLD. We should inform the user of this so they can retry, or
+            ;; we should retry.
+            (when-not (and errors (= 400 status))
+              (warn (str "OLD server returned an unexpected response to a POST"
+                         " /applicationsettings request:"))
+              (pprint/pprint r))
+            (when (and errors (= 400 status))
+              (pprint/pprint
+               (format-new-settings-server-validation-errors errors)))
+            (cond-> db
+              :always
+              (transition-edited-settings-fsm event)
+              (and errors (= 400 status))
+              (merge (format-new-settings-server-validation-errors errors)))))
 
 (re-frame/reg-event-db
  ::form-not-deleted
@@ -631,6 +735,38 @@
                     :on-success [::forms-new-fetched]
                     :on-failure [::forms-new-not-fetched])}))
 
+(def seconds-until-expiry-of-mini-resources 300)
+
+(defn mini-resources-fresh? [resources]
+  (and resources
+       (< (utils/seconds-ago (:dative/fetched-at resources))
+          seconds-until-expiry-of-mini-resources)))
+
+(re-frame/reg-event-fx
+ ::fetch-settings-new-data
+ (fn-traced [{:keys [db]} _]
+            (let [{:keys [mini-users mini-orthographies languages]}
+                  (get-in db [:old-states (:old db)])
+                  languages-present? languages
+                  users-fresh? (mini-resources-fresh? mini-users)
+                  orthographies-fresh? (mini-resources-fresh? mini-orthographies)]
+              (when (or (not languages-present?)
+                        (not users-fresh?)
+                        (not orthographies-fresh?))
+                ;; These GET params control what the OLD returns to us. If we
+                ;; add a resource name as an attribute with an empty string
+                ;; value, then that resource will NOT be returned.
+                (let [params (cond-> {}
+                               languages-present? (assoc :languages "")
+                               users-fresh? (assoc :users "")
+                               orthographies-fresh? (assoc :orthographies ""))]
+                  {:http-xhrio
+                   (assoc get-request
+                          :uri (old/applicationsettings-new (old-model/old db))
+                          :params params
+                          :on-success [::settings-new-data-fetched]
+                          :on-failure [::settings-new-data-not-fetched])})))))
+
 (re-frame/reg-event-fx
  ::fetch-applicationsettings
  (fn-traced [{:keys [db]} _]
@@ -673,17 +809,15 @@
  ::applicationsettings-fetched
  (fn-traced [db [_ response]]
             (try
-              (assoc-in
-               db
-               [:old-states (:old db) :application-settings]
-               (application-settings/process-fetch-response response))
+              (assoc-in db [:old-states (:old db) :application-settings]
+                        (application-settings/process-fetch-response response))
               (catch ExceptionInfo e
                 (warn "The application settings fetched from the OLD are invalid.")
+                (pprint/pprint (-> e ex-data :explain-data))
                 (assoc db
                        :system/error
                        (if (= :invalid-application-settings (-> e ex-data :error-code))
-                         (do (pprint/pprint (-> e ex-data :explain-data))
-                             :application-settings-invalid-by-spec)
+                         :application-settings-invalid-by-spec
                          :application-settings-invalid))))))
 
 (re-frame/reg-event-db
@@ -696,6 +830,8 @@
  (fn-traced [db _]
             (assoc db :system/error :unicode-data-not-fetched)))
 
+;; TODO: change this so it's more like ::settings-new-data-fetched, i.e., it
+;; saves the fetched data under the correct mini- location.
 (re-frame/reg-event-db
  ::forms-new-fetched
  (fn-traced [db [_event forms-new]]
@@ -703,6 +839,35 @@
               db
               [:old-states (:old db) :forms-new]
               (utils/->kebab-case-recursive forms-new))))
+
+;; TODO: this is crazy! The applicationsettings/new payload is 1.3MB and takes
+;; about 2s to download. Most of this is likely due to the languages payload.
+;; This should be static and not in the OLD db.
+(re-frame/reg-event-db
+ ::settings-new-data-fetched
+ (fn-traced [db [_ response]]
+            (try
+              (let [{:keys [users orthographies languages]}
+                    (application-settings/process-settings-new-response response)
+                    fetched-at (time/now)]
+                (cond-> db
+                  users
+                  (assoc-in [:old-states (:old db) :mini-users]
+                            {:dative/fetched-at fetched-at :items users})
+                  orthographies
+                  (assoc-in [:old-states (:old db) :mini-orthographies]
+                            {:dative/fetched-at fetched-at :items orthographies})
+                  languages
+                  (assoc-in [:old-states (:old db) :languages]
+                            {:dative/fetched-at fetched-at :items languages})))
+              (catch ExceptionInfo e
+                (warn "The new application settings data fetched from the OLD are invalid.")
+                (assoc db
+                       :system/error
+                       (if (= :invalid-new-application-settings-data
+                              (-> e ex-data :error-code))
+                         :new-application-settings-data-invalid-by-spec
+                         :new-application-settings-data-invalid))))))
 
 (re-frame/reg-event-db
  ::formsearches-new-fetched
@@ -827,6 +992,13 @@
             db))
 
 (re-frame/reg-event-db
+ ::settings-new-data-not-fetched
+ (fn-traced [db [_event _]]
+            ;; TODO handle this failure better. Probably logout and alert the user.
+            (warn "failed to fetch applicationsettings/new for this OLD")
+            db))
+
+(re-frame/reg-event-db
  ::server-not-deauthenticated
  (fn-traced [db _]
             (warn "Failed to logout of OLD.")
@@ -897,6 +1069,15 @@
  (fn-traced [db _] (merge db db/default-new-form-state)))
 
 (re-frame/reg-event-db
+ ::user-clicked-clear-edit-settings-interface
+ (fn-traced [db _]
+            (assoc db
+                   :settings/edited-settings
+                   (-> db
+                       (get-in [:old-states (:old db) :application-settings])
+                       application-settings/read-settings->write-settings))))
+
+(re-frame/reg-event-db
  ::user-clicked-help-creating-new-form
  ;; TODO
  (fn-traced [_db _]))
@@ -907,6 +1088,24 @@
             {:dispatch (if (form-specs/write-form-valid? (form-model/new-form db))
                          [::initiated-form-creation]
                          [::new-form-data-invalid])}))
+
+(re-frame/reg-event-fx
+ ::user-clicked-save-application-settings-button
+ (fn-traced [{:keys [db]} _]
+            {:dispatch (if (settings-specs/write-application-settings-valid?
+                            (application-settings/edited-settings db))
+                         [::initiated-settings-update]
+                         [::edited-settings-data-invalid])}))
+
+(doseq [k application-settings/editable-keys]
+  (let [e (keyword "dativerf.events"
+                   (str "user-changed-settings-" (name k)))]
+    (re-frame/reg-event-db
+     e (fn-traced [db [event value]]
+                  (-> db
+                      (assoc-in [:settings/edited-settings k] value)
+                      (transition-edited-settings-fsm ::user-changed-edited-settings-data)
+                      invalidate-edited-settings-cache)))))
 
 (register-form-toggler
  ::user-clicked-export-form-button

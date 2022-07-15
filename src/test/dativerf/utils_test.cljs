@@ -34,8 +34,8 @@
             [{:unicode "U+0071", :name nil}
              {:unicode "U+0313", :name nil}
              {:unicode "U+02B7", :name nil}]]
-           [(sut/unicode-inspect "á" {"0061" "LATIN SMALL LETTER A"
-                                      "0301" "COMBINING ACUTE ACCENT"})
+           [(sut/unicode-inspect "á" {:0061 "LATIN SMALL LETTER A"
+                                      :0301 "COMBINING ACUTE ACCENT"})
             (sut/unicode-inspect "ɣ")
             (sut/unicode-inspect "ƛ̕")
             (sut/unicode-inspect "q̓ʷ")])))

@@ -6,9 +6,9 @@
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
+            [dativerf.views.widgets :as widgets]
             [reagent.ratom :as r]
             [re-frame.core :as re-frame]
-            [re-com.box :refer [flex-child-style align-style]]
             [re-com.core :as re-com]))
 
 (def statuses
@@ -333,28 +333,6 @@
      ::events/user-changed-new-form-morpheme-gloss]
     [translations grammaticalities]]])
 
-;; This is copy/modified from the re-com source for input-text. See
-;; https://github.com/day8/re-com/blob/master/src/re_com/input_text.cljs#L162-L201
-(defn field-invalid-warning [message]
-  (let [showing? (r/atom false)]
-    [re-com/popover-tooltip
-     :label message
-     :position :right-center
-     :status :error
-     :showing? showing?
-     :anchor
-     [:i {:class "zmdi zmdi-hc-fw zmdi-alert-circle zmdi-spinner form-control-feedback"
-          :style {:position "static"
-                  :height "auto"
-                  :color "#d50000"
-                  :opacity "1"}
-          :on-mouse-over (re-com/handler-fn (reset! showing? true))
-          :on-mouse-out  (re-com/handler-fn (reset! showing? false))}]
-     :style (merge (flex-child-style "none")
-                   (align-style :align-self :center)
-                   {:font-size   "130%"
-                    :margin-left "4px"})]))
-
 (defn named-resource-single-select
   ([choices model event]
    (named-resource-single-select choices model event :name))
@@ -381,7 +359,7 @@
            :style (when invalid-msg {:border "1px solid #d50000"
                                      :border-radius "5px"})
            :on-change (fn [value] (re-frame/dispatch [event value]))]
-          (when invalid-msg [field-invalid-warning invalid-msg])]]]))))
+          (when invalid-msg [widgets/field-invalid-warning invalid-msg])]]]))))
 
 (defn tags [available-tags]
   (when (some #{:form/tags} @(re-frame/subscribe [::subs/visible-form-fields]))
@@ -402,7 +380,7 @@
           :on-change (fn [tags]
                        (re-frame/dispatch
                         [::events/user-changed-new-form-tags tags]))]
-         (when invalid-msg [field-invalid-warning invalid-msg])]]])))
+         (when invalid-msg [widgets/field-invalid-warning invalid-msg])]]])))
 
 (defn date-elicited []
   (when (some #{:form/date-elicited}
@@ -431,7 +409,7 @@
          :on-click
          (fn [_]
            (re-frame/dispatch [::events/user-changed-new-form-date-elicited nil]))]
-        (when invalid-msg [field-invalid-warning invalid-msg])]])))
+        (when invalid-msg [widgets/field-invalid-warning invalid-msg])]])))
 
 (defn- person->name [person]
   (str (:first-name person) " " (:last-name person)))

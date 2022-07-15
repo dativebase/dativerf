@@ -3,157 +3,127 @@
             [re-frame.core :as re-frame]
             [re-com.core :as re-com :refer [at]]
             [dativerf.events :as events]
-            [dativerf.models.old :as old-model]
             [dativerf.models.application-settings :as model]
+            [dativerf.models.old :as old-model]
+            [dativerf.models.utils :as mutils]
             [dativerf.routes :as routes]
+            [dativerf.specs.application-settings :as spec]
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
             [dativerf.views.widgets :as widgets]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.set :as set]))
+
+;; Utils
+
+(def standard-input-width "460px")
+(def errored-input-width "425px")
+
+(def ^:private invalid-style
+  {:border "1px solid #d50000"
+   :border-radius "5px"})
+
+(def ^:private language-correspondences
+  "Connection between a language name and ID."
+  {:edited-settings/object-language-name :edited-settings/object-language-id
+   :edited-settings/metalanguage-name :edited-settings/metalanguage-id})
+
+(def ^:private models->events
+  "Map from model (i.e., subscription) keyword (with :edited-settings ns) to
+  event keyword (with :dativerf.events ns)."
+  (->> model/editable-keys
+       (map (fn [k]
+              [(keyword "edited-settings" k)
+               (keyword "dativerf.events"
+                        (str "user-changed-settings-" (name k)))]))
+       (into {})))
+
+(def ^:private settings-types
+  "Map from types of (subsets of) application settings and vectors containing a
+  description of the subset, the event for toggling the display, and the
+  subscription to determine whether the edit display is visible."
+  {:general
+   ["general settings"
+    ::events/user-clicked-edit-general-settings-button
+    ::subs/general-settings-edit-interface-visible?]
+   :input-validation
+   ["input validation settings"
+    ::events/user-clicked-edit-input-validation-settings-button
+    ::subs/input-validation-settings-edit-interface-visible?]})
+
+(defn- field-event [model]
+  [(utils/remove-namespace model)
+   (models->events model)])
+
+;; View Affordances
+
+(def ^:private labeled-el (partial widgets/labeled-el model/settings-metadata))
+
+(def ^:private label-with-tooltip
+  (partial widgets/label-with-tooltip model/settings-metadata))
+
+;; Buttons
+
+(defn- undo-settings-changes-button [settings-type]
+  (let [[_ _ subscription] (settings-types settings-type)]
+    (when @(re-frame/subscribe [subscription])
+      (let [changes-made? @(re-frame/subscribe [:settings/edited-settings-changed?])]
+        [re-com/md-circle-icon-button
+         :md-icon-name "zmdi-undo"
+         :size :smaller
+         :tooltip (if changes-made?
+                    "restore to the current settings"
+                    "no changes yet: nothing to restore")
+         :disabled? (not changes-made?)
+         :on-click (fn [_]
+                     (re-frame/dispatch
+                      [::events/user-clicked-clear-edit-settings-interface]))]))))
+
+(defn toggle-view-edit-button
+  "Create a button for switching between the display view and edit view of a
+  subset of the application settings. The settings-type param is a keyword in
+  the keys of settings-types."
+  [settings-type]
+  (let [[settings-label event subscription] (settings-types settings-type)
+        edit-visible? @(re-frame/subscribe [subscription])]
+    [re-com/md-circle-icon-button
+     :md-icon-name (if edit-visible? "zmdi-chevron-left" "zmdi-edit")
+     :size :smaller
+     :tooltip (str (if edit-visible? "view the " "edit these ") settings-label)
+     :on-click (fn [_] (re-frame/dispatch [event]))]))
+
+(defn settings-type-title
+  [settings-type]
+  (let [[settings-label _ subscription] (settings-types settings-type)]
+    [re-com/box
+     :child (utils/capitalize-words
+             (str
+              (if @(re-frame/subscribe [subscription]) "edit " "view ")
+              settings-label))]))
+
+(defn save-button []
+  (let [changes-made? @(re-frame/subscribe [:settings/edited-settings-changed?])]
+    [re-com/box
+     :child
+     [re-com/button
+      :label "Save"
+      :tooltip (if changes-made?
+                 "save changes to the settings"
+                 "make some changes first")
+      :disabled? (or (not changes-made?)
+                     (not= :dativerf.fsms.edit-settings/ready
+                           @(re-frame/subscribe [:edited-settings/state])))
+      :on-click (fn [_e] (re-frame/dispatch
+                          [::events/user-clicked-save-application-settings-button]))]]))
+
+;; View Widgets
 
 (defn- title []
-  (let [old-id @(re-frame/subscribe [::subs/old])
-        olds @(re-frame/subscribe [::subs/olds])
-        old-name (old-model/name* {:old old-id :olds olds})]
-    [re-com/title
-     :src   (at)
-     :label (str old-name " Settings")
-     :level :level2]))
-
-;; Tooltips and Labels for Settings Fields
-
-(def validation-meaning
-  (str "'None' means no validation."
-       " 'Warning' means a warning is generated when a user tries invalid"
-       " input."
-       " 'Error' means invalid input is forbidden."))
-
-(defn- inventory-tooltip
-  ([preamble field] (inventory-tooltip preamble field ""))
-  ([preamble field postamble]
-   (str preamble
-        "A comma-delimited list of graphemes that should be used when entering"
-        " data into the "
-        field
-        " field"
-        postamble
-        ".")))
-
-(defn- language-name-tooltip [description]
-  (str "The name of the language that "
-       description ". This may be the ISO 639-3 \u201creference name\u201d but"
-       " this is not required."))
-
-(defn- language-id-tooltip [description]
-  (str "The three-letter ISO 639-3 identifier for the language that "
-       description ". This field may be left blank if no such identifer is"
-       " appropriate."))
-
-(def object-language-description
-  "is being documented and analyzed by means of this OLD web service")
-
-(def metalanguage-description
-  "is being used to translate, document and analyze the object language")
-
-(def settings-metadata
-  {:broad-phonetic-inventory
-   {:tooltip (inventory-tooltip "" "phonetic transcription")}
-   :broad-phonetic-validation
-   {:tooltip (str "How to validate user input in the 'phonetic"
-                  " transcription' field. " validation-meaning)}
-   :datetime-modified
-   {:tooltip (str "When these settings were last modified.")}
-   :grammaticalities
-   {:tooltip (str "A comma-delimited list of characters that will define the"
-                  " options in the grammaticality fields. Example:"
-                  " \u201c*,?,#\u201d.")}
-   :metalanguage-id
-   {:tooltip (language-id-tooltip metalanguage-description)}
-   :metalanguage-name
-   {:tooltip (language-name-tooltip metalanguage-description)}
-   :morpheme-break-is-orthographic
-   {:label "morph. break orthographic?"
-    :tooltip (str "Morpheme break is orthographic? If set to true, this means"
-                  " that the morpheme break field should be validated against"
-                  " the storage orthography. If set to false, it means that it"
-                  " should be validated against the phonemic inventory.")}
-   :morpheme-break-validation
-   {:tooltip (str "How to validate user input in the 'morpheme break' field. "
-                  validation-meaning)}
-   :morpheme-delimiters
-   {:tooltip (str "A comma-delimited list of delimiter"
-                  " characters that should be used to separate morphemes in the"
-                  " morpheme break field and morpheme glosses in the morpheme"
-                  " gloss field.")}
-   :narrow-phonetic-inventory
-   {:tooltip (inventory-tooltip "" "narrow phonetic transcription")}
-   :narrow-phonetic-validation
-   {:tooltip (str "How to validate user input in the 'narrow phonetic"
-                  " transcription' field. " validation-meaning)}
-   :object-language-id
-   {:tooltip (language-id-tooltip object-language-description)}
-   :object-language-name
-   {:tooltip (language-name-tooltip object-language-description)}
-   :orthographic-validation
-   {:tooltip (str "How to validate user input in the 'transcription' field. "
-                  validation-meaning)}
-   :phonemic-inventory
-   {:tooltip (inventory-tooltip
-              "" "morpheme break"
-              " (assuming 'morpheme break is orthographic' is set to false)")}
-   :punctuation
-   {:tooltip (str "A string of punctuation characters that should define, along"
-                  " with the graphemes in the storage orthography, the licit"
-                  " strings in the transcription field.")}
-   :storage-orthography
-   {:tooltip (str "The orthography that transcription values should be stored"
-                  " in. This orthography may affect how orthographic validation"
-                  " works and/or how orthography conversion works.")}
-   :unrestricted-users
-   {:tooltip (str "A list of users that the OLD server considers to be"
-                  " \u201cunrestricted\u201d. These users are able to access"
-                  " data that has been tagged with the \u201crestricted\u201d"
-                  " tag.")}})
-
-;; General-purpose View Machinery
-
-;; TODO: this is copied and modified from views.forms.new. This should be
-;; generalized and put in widgets maybe?
-(defn get-x-from-metadata [x metadata attr]
-  (or (-> attr metadata x)
-      (-> attr name utils/kebab->space)))
-(def label-str (partial get-x-from-metadata :label))
-(def placeholder (partial get-x-from-metadata :placeholder))
-(def tooltip (partial get-x-from-metadata :tooltip))
-
-(defn label [attr metadata]
-  (let [showing? (r/atom false)
-        tooltip* (tooltip metadata attr)]
-    [re-com/popover-tooltip
-     :label tooltip*
-     :showing? showing?
-     :width (when (> (count tooltip*) 80) "400px")
-     :anchor
-     [re-com/box
-      :class (str (styles/wider-attr-label) " " (styles/objlang) " "
-                  (styles/actionable))
-      :align :end
-      :padding "0 1em 0 0"
-      :attr {:on-mouse-over (re-com/handler-fn (reset! showing? true))
-             :on-mouse-out (re-com/handler-fn (reset! showing? false))}
-      :child (label-str metadata attr)]]))
-
-(defn labeled-value [attr value-el]
-  [re-com/h-box
-   :gap "10px"
-   :children
-   [[label attr settings-metadata]
-    value-el]])
-
-(defn- v-box [els] [re-com/v-box :src (at) :children els])
-
-;; Input Validation Display View
+  [re-com/title
+   :src   (at)
+   :label (str @(re-frame/subscribe [::subs/old-name]) " Settings")
+   :level :level2])
 
 (defn- stringify-grapheme-info [graphemes]
   (->> graphemes
@@ -161,7 +131,7 @@
               (str unicode (when name (str " " name)))))
        (str/join ", ")))
 
-(defn graph-display
+(defn- graph-display
   "For displaying a 'graph' qua a series of graphemes that represent a single
   'letter' in an orthography."
   [{:keys [graph graphemes]} {:keys [last? delimiter]}]
@@ -179,10 +149,12 @@
              :on-mouse-out (re-com/handler-fn (reset! showing? false))}
       :child (if last? graph (str graph delimiter))]]))
 
-(defn inventory-display
-  "The inventory is a sequences of graphs. We display it as a <div> for each
-  graph, each having a tooltip that shows the Unicode code points and names of
-  each grapheme in the graph."
+(defn- inventory-display
+  "Display an inventory. The inventory is a string representing a sequence of
+  graphs. We display it as a <div> for each graph, each having a tooltip that
+  shows the Unicode code points and names of each grapheme in the graph. The
+  parser for parsing the inventory and the delimiter for separating the graph
+  displays can be configured in the map second parameter."
   ([inventory] (inventory-display inventory {}))
   ([inventory {:keys [delimiter parser] :or {parser model/parse-inventory
                                              delimiter ","}}]
@@ -196,7 +168,254 @@
         [graph-display graph-data {:last? (= last-idx idx)
                                    :delimiter delimiter}])])))
 
-(defn- input-validation-subtab []
+;; Input Widgets
+
+(defn- validation-select [model metadata]
+  (let [[field event] (field-event model)
+        invalid-msg @(re-frame/subscribe
+                      [:settings-edit/field-specific-validation-error-message
+                       field])]
+    [labeled-el field
+     [re-com/h-box
+      :children
+      [[re-com/single-dropdown
+        :choices (sort-by :label (for [v spec/validation-values]
+                                   {:id v :label v}))
+        :width (if invalid-msg errored-input-width standard-input-width)
+        :model (or @(re-frame/subscribe [model]) "None")
+        :style (when invalid-msg invalid-style)
+        :on-change (fn [value] (re-frame/dispatch [event value]))]
+       (when invalid-msg [widgets/field-invalid-warning invalid-msg])]]]))
+
+(defn- checkbox [model metadata]
+  (let [[field event] (field-event model)]
+    [labeled-el
+     field
+     [re-com/h-box
+      :children
+      [[re-com/checkbox
+        :model @(re-frame/subscribe [model])
+        :on-change (fn [value] (re-frame/dispatch [event value]))]]]]))
+
+(defn- orthography-select [model metadata]
+  (let [[field event] (field-event model)
+        invalid-msg @(re-frame/subscribe
+                      [:settings-edit/field-specific-validation-error-message
+                       field])
+        orthographies @(re-frame/subscribe [::subs/mini-orthographies])]
+    [labeled-el
+     field
+     [re-com/h-box
+      :children
+      [[re-com/single-dropdown
+        :choices (concat [{:id nil :label "None"}]
+                         (sort-by :label (for [o orthographies]
+                                           {:id (:id o) :label (:name o)})))
+        :width (if invalid-msg errored-input-width standard-input-width)
+        :model (or @(re-frame/subscribe [model]) "")
+        :style (when invalid-msg invalid-style)
+        :on-change (fn [value] (re-frame/dispatch [event value]))]
+       (when invalid-msg [widgets/field-invalid-warning invalid-msg])]]]))
+
+(defn- text-input
+  [model]
+  (let [[field event] (field-event model)]
+    [widgets/text-input
+     model/settings-metadata
+     model
+     field
+     event
+     :settings-edit/field-specific-validation-error-message
+     {:submit-event ::events/user-clicked-save-application-settings-button}]))
+
+(defn- match-language
+  "Return the first 8 languages that match search term s. Place any exact match
+  at the start. Sort the rest alphabetically."
+  [keys-vals s]
+  (let [term (str/lower-case s)
+        languages @(re-frame/subscribe [::subs/languages])
+        substring-matches
+        (->> languages keys-vals (filter (fn [x] (str/includes? (str/lower-case
+                                                                 x) term))))
+        exact-matches
+        (->> languages keys-vals (filter (fn [x] (= term (str/lower-case x)))))]
+    (->> (concat exact-matches substring-matches)
+         (sort-by (fn [v] [(not= s v) v]))
+         (take 8)
+         set
+         (sort-by (fn [v] [(not= s v) v])))))
+
+(def match-language-name (partial match-language vals))
+(def match-language-id (partial match-language keys))
+
+(defn- suggested-counterpart
+  "Display a suggested counterpart for a user-selected language-related value.
+  For example, if the user has specified a specific ISO 639-3 3-character
+  language code for the object language, then this widget would display the
+  corresponding language Ref_Name and a checkmark button. If the user clicks
+  that button, then the object language name would receive the Ref_Name
+  counterpart value."
+  [model model-type metadata]
+  (let [languages @(re-frame/subscribe [::subs/languages])
+        value @(re-frame/subscribe [model])
+        counterpart (get language-correspondences model
+                         (get (set/map-invert language-correspondences) model))
+        counterpart-event (models->events counterpart)
+        counterpart-value @(re-frame/subscribe [counterpart])
+        counterpart-label (mutils/label-str metadata (utils/remove-namespace counterpart))
+        tooltip (str "use this " counterpart-label " value")
+        finder (if (= model-type :name) (set/map-invert languages) languages)
+        suggestion (get finder value)]
+    (when (and suggestion (not= suggestion counterpart-value))
+      [re-com/h-box
+       :gap "10px"
+       :children
+       [[re-com/box :child suggestion]
+        [re-com/md-circle-icon-button
+         :md-icon-name "zmdi-check"
+         :size :smaller
+         :class (styles/default)
+         :tooltip tooltip
+         :on-click (fn [_] (re-frame/dispatch [counterpart-event suggestion]))]]])))
+
+(defn language-typeahead
+  "Display for typing a language Id or Name and having auto-completion from the
+  ISO 639-3 languages dataset."
+  [model-type model metadata]
+  (let [[field event] (field-event model)
+        data-source-fn (if (= :name model-type)
+                         match-language-name
+                         match-language-id)
+        invalid-msg @(re-frame/subscribe
+                      [:settings-edit/field-specific-validation-error-message
+                       field])]
+    [labeled-el
+     field
+     [re-com/h-box
+      :gap "10px"
+      :children
+      [[re-com/typeahead
+        :width "260px"
+        :placeholder (mutils/placeholder metadata field)
+        :debounce-delay 600
+        :data-source data-source-fn
+        :on-change (fn [val] (re-frame/dispatch-sync [event val]))
+        :change-on-blur? true
+        :status (and invalid-msg :error)
+        :status-icon? invalid-msg
+        :status-tooltip invalid-msg
+        :model @(re-frame/subscribe [model])]
+       [suggested-counterpart model model-type metadata]]]]))
+
+(def language-name-typeahead (partial language-typeahead :name))
+
+(def language-id-typeahead (partial language-typeahead :id))
+
+(defn unrestricted-users-select
+  "Display for selection a set of unrestricted users."
+  [metadata]
+  (let [field :unrestricted-users
+        invalid-msg @(re-frame/subscribe
+                      [:settings-edit/field-specific-validation-error-message
+                       field])
+        mini-users @(re-frame/subscribe [::subs/mini-users])]
+    [labeled-el field
+     (if mini-users
+       [re-com/h-box
+        :children
+        [[re-com/selection-list
+          :choices (sort-by :label
+                            (for [{:keys [id first-name last-name]} mini-users]
+                              {:id id :label (str first-name " " last-name)}))
+          :width (if invalid-msg "423px" "458px")
+          :height "60px"
+          :model @(re-frame/subscribe [:edited-settings/unrestricted-users])
+          :on-change (fn [users]
+                       (re-frame/dispatch
+                        [::events/user-changed-settings-unrestricted-users users]))]
+         (when invalid-msg [widgets/field-invalid-warning invalid-msg])]]
+       [re-com/throbber])]))
+
+;; Composite Views
+
+(defn- general-settings-view []
+  (let [{:keys [object-language-name object-language-id metalanguage-name
+                metalanguage-id unrestricted-users datetime-modified]}
+        @(re-frame/subscribe [::subs/old-settings])]
+    [re-com/v-box
+     :src (at)
+     :gap "1em"
+     :class (str (styles/v-box-gap-with-nils) " " (styles/objlang))
+     :children
+     [[widgets/v-box [[labeled-el :object-language-name
+                       [re-com/box :child object-language-name]]
+                      [labeled-el :object-language-id
+                       [re-com/box :child object-language-id]]]]
+      [widgets/v-box [[labeled-el :metalanguage-name
+                       [re-com/box :child metalanguage-name]]
+                      [labeled-el :metalanguage-id
+                       [re-com/box :child metalanguage-id]]]]
+      ;; TODO: users should be links to the user resources, but they don't exist
+      ;; yet.
+      [widgets/v-box [[labeled-el :unrestricted-users
+                       (widgets/value-cell {:type :coll-of-users
+                                            :value unrestricted-users})]
+                      [labeled-el :datetime-modified
+                       [re-com/box :child
+                        (utils/datetime->human-string datetime-modified)]]]]]]))
+
+(defn- general-settings-edit []
+  (re-frame/dispatch [::events/fetch-settings-new-data])
+  [re-com/v-box
+   :src (at)
+   :gap "1em"
+   :class (str (styles/v-box-gap-with-nils) " " (styles/objlang))
+   :children
+   [[widgets/v-box-gap-with-nils
+     [[language-name-typeahead :edited-settings/object-language-name
+       model/settings-metadata]
+      [language-id-typeahead :edited-settings/object-language-id
+       model/settings-metadata]]]
+    [widgets/v-box-gap-with-nils
+     [[language-name-typeahead :edited-settings/metalanguage-name
+       model/settings-metadata]
+      [language-id-typeahead :edited-settings/metalanguage-id
+       model/settings-metadata]]]
+    [widgets/v-box-gap-with-nils [[unrestricted-users-select
+                                   model/settings-metadata]]]]])
+
+(defn input-validation-settings-edit []
+  (re-frame/dispatch [::events/fetch-settings-new-data])
+  [re-com/v-box
+   :src (at)
+   :gap "1em"
+   :class (str (styles/v-box-gap-with-nils) " " (styles/objlang))
+   :children
+   [[widgets/v-box-gap-with-nils
+     [[validation-select :edited-settings/orthographic-validation
+       model/settings-metadata]
+      [orthography-select :edited-settings/storage-orthography
+       model/settings-metadata]]]
+    [widgets/v-box-gap-with-nils
+     [[validation-select :edited-settings/narrow-phonetic-validation
+       model/settings-metadata]
+      [text-input :edited-settings/narrow-phonetic-inventory]]]
+    [widgets/v-box-gap-with-nils
+     [[validation-select :edited-settings/broad-phonetic-validation
+       model/settings-metadata]
+      [text-input :edited-settings/broad-phonetic-inventory]]]
+    [widgets/v-box-gap-with-nils
+     [[validation-select :edited-settings/morpheme-break-validation
+       model/settings-metadata]
+      [checkbox :edited-settings/morpheme-break-is-orthographic
+       model/settings-metadata]
+      [text-input :edited-settings/phonemic-inventory]
+      [text-input :edited-settings/morpheme-delimiters]]]
+    [widgets/v-box-gap-with-nils
+     [[text-input :edited-settings/punctuation]
+      [text-input :edited-settings/grammaticalities]]]]])
+
+(defn- input-validation-settings-view []
   (let [{:keys [broad-phonetic-inventory broad-phonetic-validation
                 grammaticalities morpheme-break-is-orthographic
                 morpheme-break-validation morpheme-delimiters
@@ -209,61 +428,69 @@
      :gap "1em"
      :class (str (styles/v-box-gap-with-nils) " " (styles/objlang))
      :children
-     [[v-box [[labeled-value :orthographic-validation
-               [re-com/box :child orthographic-validation]]
+     [[widgets/v-box [[labeled-el :orthographic-validation
+               [re-com/box :child (or orthographic-validation "None")]]
               ;; TODO: storage orthography should be a link to the orthography
               ;; resource, but vws for orthographies don't exist yet.
-              [labeled-value :storage-orthography
+              [labeled-el :storage-orthography
                [inventory-display (or (:orthography storage-orthography) "")]]]]
-      [v-box [[labeled-value :narrow-phonetic-validation
-               [re-com/box :child narrow-phonetic-validation]]
-              [labeled-value :narrow-phonetic-inventory
+      [widgets/v-box [[labeled-el :narrow-phonetic-validation
+               [re-com/box :child (or narrow-phonetic-validation "None")]]
+              [labeled-el :narrow-phonetic-inventory
                [inventory-display narrow-phonetic-inventory]]]]
-      [v-box [[labeled-value :broad-phonetic-validation
-               [re-com/box :child broad-phonetic-validation]]
-              [labeled-value :broad-phonetic-inventory
+      [widgets/v-box [[labeled-el :broad-phonetic-validation
+               [re-com/box :child (or broad-phonetic-validation "None")]]
+              [labeled-el :broad-phonetic-inventory
                [inventory-display broad-phonetic-inventory]]]]
-      [v-box [[labeled-value :morpheme-break-validation
-               [re-com/box :child morpheme-break-validation]]
-              [labeled-value :morpheme-break-is-orthographic
+      [widgets/v-box [[labeled-el :morpheme-break-validation
+               [re-com/box :child (or morpheme-break-validation "None")]]
+              [labeled-el :morpheme-break-is-orthographic
                [re-com/box :child (str morpheme-break-is-orthographic)]]
-              [labeled-value :phonemic-inventory
+              [labeled-el :phonemic-inventory
                [inventory-display phonemic-inventory]]
-              [labeled-value :morpheme-delimiters
+              [labeled-el :morpheme-delimiters
                [inventory-display morpheme-delimiters]]]]
-      [v-box [[labeled-value :punctuation
+      [widgets/v-box [[labeled-el :punctuation
                [inventory-display punctuation {:parser model/parse-punctuation
                                                :delimiter ""}]]
-              [labeled-value :grammaticalities
+              [labeled-el :grammaticalities
                [inventory-display grammaticalities]]]]]]))
 
-;; General Settings Display View
+;; Headers & Footers
+
+(defn footer []
+  (widgets/footer
+   {:center [[save-button]]}))
+
+(defn general-header []
+  (widgets/header
+   {:left [[toggle-view-edit-button :general]]
+    :center [[settings-type-title :general]]
+    :right [[undo-settings-changes-button :general]]}))
+
+(defn input-validation-header []
+  (widgets/header
+   {:left [[toggle-view-edit-button :input-validation]]
+    :center [[settings-type-title :input-validation]]
+    :right [[undo-settings-changes-button :input-validation]]}))
 
 (defn- server-settings-subtab []
-  (let [{:keys [object-language-name object-language-id metalanguage-name
-                metalanguage-id unrestricted-users datetime-modified]}
-        @(re-frame/subscribe [::subs/old-settings])]
+  (let [edit? @(re-frame/subscribe [::subs/general-settings-edit-interface-visible?])]
     [re-com/v-box
-     :src (at)
-     :gap "1em"
-     :class (str (styles/v-box-gap-with-nils) " " (styles/objlang))
+     :gap "10px"
      :children
-     [[v-box [[labeled-value :object-language-name
-               [re-com/box :child object-language-name]]
-              [labeled-value :object-language-id
-               [re-com/box :child object-language-id]]]]
-      [v-box [[labeled-value :metalanguage-name
-               [re-com/box :child metalanguage-name]]
-              [labeled-value :metalanguage-id
-               [re-com/box :child metalanguage-id]]]]
-      ;; TODO: users should be links to the user resources, but they don't exist
-      ;; yet.
-      [v-box [[labeled-value :unrestricted-users
-               (widgets/value-cell {:type :coll-of-users
-                                    :value unrestricted-users})]
-              [labeled-value :datetime-modified
-               [re-com/box :child
-                (utils/datetime->human-string datetime-modified)]]]]]]))
+     [[general-header]
+      (if edit? [general-settings-edit] [general-settings-view])
+      (when edit? [footer])]]))
+
+(defn- input-validation-subtab []
+  (let [edit? @(re-frame/subscribe [::subs/input-validation-settings-edit-interface-visible?])]
+    [re-com/v-box
+     :gap "10px"
+     :children
+     [[input-validation-header]
+      (if edit? [input-validation-settings-edit] [input-validation-settings-view])
+      (when edit? [footer])]]))
 
 (defmulti settings-subtabs :handler)
 

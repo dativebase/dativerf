@@ -12,6 +12,10 @@
   (str "Sadly the application settings fetched from the OLD do not appear to be"
        " valid. " generic-advice))
 
+(def invalid-application-settings-new
+  (str "The new application settings data fetched from the OLD do not appear to"
+       " be valid. " generic-advice))
+
 (def errors
   {:default
    (str "Oops! An unidentified error occurred. " generic-advice)
@@ -31,6 +35,8 @@
         " manner." generic-advice)
    :application-settings-invalid-by-spec invalid-application-settings
    :application-settings-invalid invalid-application-settings
+   :new-application-settings-data-invalid-by-spec invalid-application-settings-new
+   :new-application-settings-data-invalid invalid-application-settings-new
    :unicode-data-not-fetched
    (str "Sadly Dative was unable to fetch the Unicode data that allows it to"
         " name the characters used in orthographies and inventories. "
