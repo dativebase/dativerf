@@ -5,8 +5,12 @@
             [clojure.string :as str]
             [dativerf.db :as db]
             [dativerf.specs.common :as common]
+            [dativerf.specs.elicitation-method :as elicitation-method]
             [dativerf.specs.file :as file]
             [dativerf.specs.source :as source]
+            [dativerf.specs.speaker :as speaker]
+            [dativerf.specs.syntactic-category :as syntactic-category]
+            [dativerf.specs.tag :as tag]
             [dativerf.specs.user :as user]
             [dativerf.utils :as utils]
             [goog.string :as gstring]
@@ -15,43 +19,11 @@
 ;; TODO: this ns is called form but there are specs for all types of resources
 ;; in here.
 
-(s/def :tag/id ::common/id)
-(s/def :tag/name string?)
-(s/def :tag/description string?)
-(s/def :tag/datetime-modified ::common/datetime-string)
-(s/def ::tag (s/keys :req-un [:tag/id
-                              :tag/name
-                              :tag/description
-                              :tag/datetime-modified]))
-(s/def ::tags (s/coll-of ::tag))
-
-(s/def :syntactic-category/id ::common/id)
-(s/def :syntactic-category/name string?)
-(s/def ::syntactic-category (s/keys :req-un [:syntactic-category/id
-                                             :syntactic-category/name]))
-(s/def ::syntactic-categories (s/coll-of ::syntactic-category))
-
-(s/def :elicitation-method/id ::common/id)
-(s/def :elicitation-method/name string?)
-(s/def ::elicitation-method (s/keys :req-un [:elicitation-method/id
-                                             :elicitation-method/name]))
-(s/def ::elicitation-methods (s/coll-of ::elicitation-method))
-
 (defn uuid-string? [x]
   (and (string? x)
        (re-find #"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
                 x)))
 (s/def ::uuid-string uuid-string?)
-
-(s/def :speaker/id ::common/id)
-(s/def :speaker/first-name string?)
-(s/def :speaker/last-name string?)
-(s/def :speaker/dialect string?)
-(s/def ::speaker (s/keys :req-un [:speaker/id
-                                  :speaker/first-name
-                                  :speaker/last-name
-                                  :speaker/dialect]))
-(s/def ::speakers (s/coll-of ::speaker))
 
 (s/def :translation/id ::common/id)
 (s/def :translation/transcription string?)
@@ -63,7 +35,7 @@
 
 ;; Form spec
 
-(s/def :form/tags ::tags)
+(s/def :form/tags ::tag/tags)
 (s/def :form/date-elicited (s/nilable ::common/date-string))
 (s/def :form/narrow-phonetic-transcription string?)
 (s/def :form/enterer (s/nilable ::user/mini-user))
@@ -73,7 +45,7 @@
 (s/def :form/verifier (s/nilable ::user/mini-user))
 (s/def :form/break-gloss-category string?)
 (s/def :form/modifier (s/nilable ::user/mini-user))
-(s/def :form/syntactic-category (s/nilable ::syntactic-category))
+(s/def :form/syntactic-category (s/nilable ::syntactic-category/mini-syntactic-category))
 (s/def :form/speaker-comments string?)
 ;; TODO: better spec for morpheme-gloss-ids
 (s/def :form/morpheme-gloss-ids (s/nilable (s/coll-of any?)))
@@ -88,11 +60,11 @@
 (s/def :form/id ::common/id)
 (s/def :form/morpheme-gloss (s/nilable string?))
 (s/def :form/files ::file/mini-files)
-(s/def :form/elicitation-method (s/nilable ::elicitation-method))
+(s/def :form/elicitation-method (s/nilable ::elicitation-method/mini-elicitation-method))
 (s/def :form/datetime-modified ::common/datetime-string)
 (s/def :form/uuid ::uuid-string)
 (s/def :form/morpheme-break string?)
-(s/def :form/speaker (s/nilable ::speaker))
+(s/def :form/speaker (s/nilable ::speaker/mini-speaker))
 ;; TODO: better spec for morpheme-break-ids
 (s/def :form/morpheme-break-ids (s/nilable (s/coll-of any?)))
 (s/def :form/phonetic-transcription string?)
@@ -198,8 +170,8 @@
 (s/def :write-form/semantics (s/and string? (partial max-length 1023)))
 (s/def :write-form/status #{"tested" "requires testing"})
 (s/def :write-form/elicitation-method (s/nilable ::common/id))
-(s/def :write-form/syntactic-category (s/nilable ::common/id))
-(s/def :write-form/speaker (s/nilable ::common/id))
+(s/def :write-form/syntactic-category (s/nilable ::syntactic-category/id))
+(s/def :write-form/speaker (s/nilable ::speaker/id))
 (s/def :write-form/elicitor (s/nilable ::common/id))
 (s/def :write-form/verifier (s/nilable ::common/id))
 (s/def :write-form/source (s/nilable ::common/id))
@@ -242,6 +214,25 @@
                     :write-form/date-elicited])
    one-non-empty-transcription-type-value))
 
+(s/def :new-form/elicitation-methods ::elicitation-method/mini-elicitation-methods)
+(s/def :new-form/grammaticality string?)
+(s/def :new-form/grammaticalities (s/coll-of :new-form/grammaticality))
+(s/def :new-form/sources ::source/mini-sources)
+(s/def :new-form/speakers ::speaker/mini-speakers)
+(s/def :new-form/syntactic-categories ::syntactic-category/mini-syntactic-categories)
+(s/def :new-form/tags ::tag/mini-tags)
+(s/def :new-form/users ::user/mini-users)
+(s/def :new-form/new-data (s/keys :opt-un [:new-form/elicitation-methods
+                                           :new-form/grammaticalities
+                                           :new-form/sources
+                                           :new-form/speakers
+                                           :new-form/syntactic-categories
+                                           :new-form/tags
+                                           :new-form/users]))
+
+(def new-data-valid? (partial s/valid? :new-form/new-data))
+(def new-data-explain-data (partial s/explain-data :new-form/new-data))
+
 (def write-form-valid? (partial s/valid? ::write-form))
 (def write-form-explain-data (partial s/explain-data ::write-form))
 
@@ -273,7 +264,5 @@
           {:transcription 2
            :translations
            [{:transcription "b" :grammaticality ""}]}))
-
-
 
 )

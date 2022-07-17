@@ -1,8 +1,6 @@
 (ns dativerf.specs.application-settings
   (:require [clojure.spec.alpha :as s]
-            [clojure.set :as set]
             [dativerf.specs.common :as common]
-            [dativerf.specs.language :as language]
             [dativerf.specs.orthography :as orthography]
             [dativerf.specs.user :as user]))
 

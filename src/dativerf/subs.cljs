@@ -4,8 +4,7 @@
    [dativerf.fsms.login :as login]
    [dativerf.models.application-settings :as application-settings]
    [dativerf.models.form :as form-model]
-   [dativerf.models.old :as old-model]
-   [dativerf.utils :as utils]))
+   [dativerf.models.old :as old-model]))
 
 (doseq [[subscription path]
         {::active-route [:active-route]
@@ -77,8 +76,14 @@
      (get-in db [:new-form/translations index new-form-translations-key]))))
 
 (doseq [[subscription mini-resource]
-        {::languages :languages
+        {::grammaticalities :grammaticalities
+         ::languages :languages
+         ::mini-elicitation-methods :mini-elicitation-methods
          ::mini-orthographies :mini-orthographies
+         ::mini-sources :mini-sources
+         ::mini-speakers :mini-speakers
+         ::mini-syntactic-categories :mini-syntactic-categories
+         ::mini-tags :mini-tags
          ::mini-users :mini-users}]
   (re-frame/reg-sub
    subscription

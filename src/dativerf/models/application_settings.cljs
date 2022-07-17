@@ -1,7 +1,6 @@
 (ns dativerf.models.application-settings
   (:require [dativerf.specs.application-settings :as spec]
             [dativerf.utils :as utils]
-            [clojure.set :as set]
             [clojure.string :as str]))
 
 ;; Metadata about Application Settings Fields

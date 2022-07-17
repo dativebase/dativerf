@@ -3,140 +3,151 @@
   (:require [clojure.string :as str]
             [dativerf.events :as events]
             [dativerf.fsms.new-form :as new-form-fsm]
+            [dativerf.models.form :as model]
+            [dativerf.models.utils :as mutils]
             [dativerf.styles :as styles]
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
             [dativerf.views.widgets :as widgets]
-            [reagent.ratom :as r]
             [re-frame.core :as re-frame]
             [re-com.core :as re-com]))
 
-(def statuses
-  (mapv (fn [x] {:id x :name x})
-        ["tested" "requires testing"]))
+;; Utils
+
+(defn- person->name [person]
+  (str (:first-name person) " " (:last-name person)))
+
+(defn- source->citation [{:keys [author year]}]
+  (str author " (" year ")"))
+
+(def ^:private models->events
+  "Map from model (i.e., subscription) keyword (with :edited-settings ns) to
+  event keyword (with :dativerf.events ns)."
+  (->> model/editable-keys
+       (map (fn [k]
+              [(keyword "new-form" k)
+               (keyword "dativerf.events"
+                        (str "user-changed-new-form-" (name k)))]))
+       (into {})))
+
+(defn- field-event [model]
+  [(utils/remove-namespace model)
+   (models->events model)])
+
+(def ^:private statuses
+  (mapv (fn [x] {:id x :name x}) ["tested" "requires testing"]))
+
+(def ^:private field->choices
+  {:elicitation-method ::subs/mini-elicitation-methods
+   :tags ::subs/mini-tags
+   :syntactic-category ::subs/mini-syntactic-categories
+   :speaker ::subs/mini-speakers
+   :elicitor ::subs/mini-users
+   :verifier ::subs/mini-users
+   :source ::subs/mini-sources
+   :status statuses})
+
+(def ^:private field->label-fn
+  {:speaker person->name
+   :elicitor person->name
+   :verifier person->name
+   :source source->citation})
 
 (defn- key-up-input [e]
   (when (= "Enter" (.-key e))
     (re-frame/dispatch
      [::events/user-clicked-create-new-form-button])))
 
-(def model-metadata
-  {:new-form/narrow-phonetic-transcription
-   {:label "narr. phon. transcr."
-    :tooltip "A narrow phonetic transcription, probably in IPA."}
-   :new-form/phonetic-transcription
-   {:label "phon. transcr."
-    :tooltip "A phonetic transcription, probably in IPA."}
-   :new-form/transcription
-   {:tooltip "A transcription, probably orthographic."}
-   :new-form/morpheme-break
-   {:tooltip "A sequence of morpheme shapes and delimiters. The OLD assumes
-              phonemic shapes (e.g., “in-perfect”), but phonetic (i.e.,
-              allomorphic, e.g., “im-perfect”) ones are ok."}
-   :new-form/morpheme-gloss
-   {:tooltip "A sequence of morpheme glosses and delimiters, isomorphic to
-             the morpheme break sequence, e.g., “NEG-parfait”."}
-   :new-form/translations
-   {:tooltip "One or more translations for the form. Each translation may have
-              its own grammaticality/acceptibility specification."}
-   :new-form/comments
-   {:tooltip "General-purpose field for notes and commentary about the form."}
-   :new-form/speaker-comments
-   {:tooltip "Field specifically for comments about the form made by the
-              speaker/consultant."}
-   :new-form/elicitation-method
-   {:tooltip "How the form was elicited. Examples: “volunteered”, “judged
-              elicitor’s utterance”, “translation task”, etc."}
-   :new-form/tags
-   {:tooltip "Tags for categorizing your forms."}
-   :new-form/syntactic-category
-   {:tooltip "The category (syntactic and/or morphological) of the form."}
-   :new-form/date-elicited
-   {:tooltip "The date this form was elicited"}
-   :new-form/speaker
-   {:tooltip "The speaker (consultant) who produced or judged the form."}
-   :new-form/elicitor
-   {:tooltip "The linguistic fieldworker who elicited the form with the help
-              of the consultant."}
-   :new-form/verifier
-   {:tooltip "The user who has verified the reliability/accuracy of this form."}
-   :new-form/source
-   {:tooltip "The textual source (e.g., research paper, text collection, book
-              of learning materials) from which the form was drawn, if
-              applicable."}
-   :new-form/files
-   {:tooltip "Digital files (e.g., audio, video, image or text) that are
-              associated to this form."}
-   :new-form/syntax
-   {:tooltip "A syntactic phrase structure representation in some kind of
-              string-based format."}
-   :new-form/semantics
-   {:tooltip "A semantic representation of the meaning of the form in some
-              string-based format."}
-   :new-form/status
-   {:tooltip "The status of the form: “tested” for data that have been
-              elicited/tested/verified with a consultant or “requires testing”
-              for data that are posited and still need testing/elicitation."}})
-
-(defn model-x [x model]
-  (or (-> model model-metadata x)
-      (-> model name utils/kebab->space)))
-(def model-label (partial model-x :label))
-(def model-placeholder (partial model-x :placeholder))
-(def model-tooltip (partial model-x :tooltip))
-
-(defn label [model]
-  (let [showing? (r/atom false)
-        tooltip (or (and model (model-tooltip model)) "")]
-    [re-com/popover-tooltip
-     :label (or (and model (model-tooltip model)) "")
-     :showing? showing?
-     :width (when (> (count tooltip) 80) "400px")
-     :anchor
-     [re-com/box
-      :class (str (styles/attr-label) " " (styles/objlang))
-      :align :end
-      :padding "0 1em 0 0"
-      :attr {:on-mouse-over (re-com/handler-fn (reset! showing? true))
-             :on-mouse-out (re-com/handler-fn (reset! showing? false))}
-      :child (or (and model (model-label model)) "")]]))
-
-(defn transcription [grammaticalities]
-  (let [invalid-msg
-        @(re-frame/subscribe [:new-form/field-specific-validation-error-message
-                              :transcription])]
-    [re-com/h-box
-     :gap "10px"
-     :children
-     [[label :new-form/transcription]
-      [re-com/single-dropdown
-       :choices (for [g grammaticalities] {:id g :label g})
-       :width "50px"
-       :model @(re-frame/subscribe [:new-form/grammaticality])
-       :on-change (fn [grammaticality]
-                    (re-frame/dispatch
-                     [::events/user-changed-new-form-grammaticality
-                      grammaticality]))]
-      [re-com/input-text
-       :change-on-blur? false
-       :placeholder "transcription"
-       :width "500px"
-       :model @(re-frame/subscribe [:new-form/transcription])
-       :status (and invalid-msg :error)
-       :status-icon? invalid-msg
-       :status-tooltip invalid-msg
-       :attr {:auto-focus true
-              :on-key-up key-up-input}
-       :on-change
-       (fn [transcription] (re-frame/dispatch-sync
-                            [::events/user-changed-new-form-transcription
-                             transcription]))]]]))
+(def ^:private label-str (partial mutils/label-str model/metadata))
+(def ^:private placeholder (partial mutils/placeholder model/metadata))
+(def ^:private description (partial mutils/description model/metadata))
 
 (defn- fire-on-enter-space [event-vec]
   (re-com/handler-fn
    (when (some #{(.-key event)} ["Enter" " "])
      (re-frame/dispatch event-vec)
      (.preventDefault event))))
+
+(def ^:private label (partial widgets/label-with-tooltip
+                              model/metadata
+                              styles/attr-label))
+
+(def ^:private labeled-el (partial widgets/labeled-el model/metadata styles/attr-label))
+
+(defn- invalid-warning []
+  (when (= ::new-form-fsm/invalid @(re-frame/subscribe [:new-form/state]))
+    [re-com/alert-box
+     :alert-type :danger
+     :heading "Invalid Form"
+     :body @(re-frame/subscribe [:new-form/general-validation-error-message])]))
+
+;; Buttons
+
+(defn- save-button []
+  [re-com/box
+   :child
+   [re-com/button
+    :label "Save"
+    :tooltip "create this new form"
+    :disabled? (not= :dativerf.fsms.new-form/ready
+                     @(re-frame/subscribe [:new-form/state]))
+    :on-click (fn [_e] (re-frame/dispatch
+                        [::events/user-clicked-create-new-form-button]))]])
+
+(defn- toggle-secondary-inputs-button []
+  [re-com/md-circle-icon-button
+   :md-icon-name
+   (if @(re-frame/subscribe [::subs/forms-new-form-secondary-fields-visible?])
+     "zmdi-chevron-up"
+     "zmdi-chevron-down")
+   :size :smaller
+   :tooltip
+   (if @(re-frame/subscribe [::subs/forms-new-form-secondary-fields-visible?])
+     "hide the secondary data input fields"
+     "show the secondary data input fields")
+   :on-click
+   (fn [_] (re-frame/dispatch
+            [::events/user-clicked-toggle-secondary-new-form-fields]))])
+
+(defn- hide-new-form-interface-button []
+  [re-com/md-circle-icon-button
+   :md-icon-name "zmdi-close"
+   :size :smaller
+   :tooltip "hide new form interface"
+   :on-click
+   (fn [_]
+     (re-frame/dispatch
+      [::events/user-clicked-new-form-button]))])
+
+(defn- reset-new-form-values-button []
+  [re-com/md-circle-icon-button
+   :md-icon-name "zmdi-delete"
+   :size :smaller
+   :tooltip "clear this form: reset all fields to their default values"
+   :on-click
+   (fn [_]
+     (re-frame/dispatch
+      [::events/user-clicked-clear-new-form-interface]))])
+
+(defn- help-creating-form-button []
+  [re-com/md-circle-icon-button
+   :md-icon-name "zmdi-help"
+   :size :smaller
+   :tooltip "help with creating a new form"
+   :disabled? true
+   :on-click
+   (fn [_]
+     (re-frame/dispatch
+      [::events/user-clicked-help-creating-new-form]))])
+
+(defn- reset-date-elicited-button []
+  [re-com/md-circle-icon-button
+   :md-icon-name "zmdi-delete"
+   :size :smaller
+   :tooltip "remove date elicited"
+   :on-click
+   (fn [_]
+     (re-frame/dispatch [::events/user-changed-new-form-date-elicited nil]))])
 
 (defn- add-new-translation-button []
   [re-com/md-circle-icon-button
@@ -166,192 +177,52 @@
      (re-frame/dispatch
       [::events/user-clicked-remove-translation-button index]))])
 
-(defn translation [index grammaticalities]
-  (let [invalid-msg
-        @(re-frame/subscribe [:new-form/field-specific-validation-error-message
-                              :translations])]
-    [re-com/h-box
-     :gap "10px"
-     :children
-     [[label (when (zero? index) :new-form/translations)]
-      [re-com/single-dropdown
-       :choices (for [g grammaticalities] {:id g :label g})
-       :width "50px"
-       :model @(re-frame/subscribe [:new-form/translation-grammaticality index])
-       :on-change (fn [grammaticality]
-                    (re-frame/dispatch
-                     [::events/user-changed-new-form-translation-grammaticality
-                      index grammaticality]))]
-      [re-com/input-text
-       :change-on-blur? false
-       :placeholder "translation"
-       :width "460px"
-       :model @(re-frame/subscribe [:new-form/translation-transcription index])
-       :status (and invalid-msg :error)
-       :status-icon? invalid-msg
-       :status-tooltip invalid-msg
-       :attr {:on-key-up key-up-input}
-       :on-change
-       (fn [transcription]
-         (re-frame/dispatch-sync
-          [::events/user-changed-new-form-translation-transcription
-           index transcription]))]
-      [re-com/box
-       :class (styles/default)
-       :child
-       (if (zero? index)
-         [add-new-translation-button]
-         [remove-translation-button index])]]]))
+;; Inputs
 
-(defn translations [grammaticalities]
-  [re-com/v-box
-   :gap "10px"
-   :children
-   (for [index (range (count @(re-frame/subscribe [:new-form/translations])))]
-     ^{:key (str "translation-" index)}
-     [translation index grammaticalities])])
-
-(defn labeled-input [model input-widget]
-  [re-com/h-box
-   :gap "10px"
-   :children
-   [[label model]
-    input-widget]])
-
-(defn text-input [model event]
+(defn- text-input [model]
   (when (some #{(utils/set-kw-ns-to-form model)}
               @(re-frame/subscribe [::subs/visible-form-fields]))
-    (let [field (utils/remove-namespace model)
+    (let [[field event] (field-event model)
           invalid-msg
           @(re-frame/subscribe [:new-form/field-specific-validation-error-message
                                 field])]
-      [re-com/h-box
-       :gap "10px"
-       :children
-       [[label model]
-        [re-com/input-text
-         :change-on-blur? false
-         :placeholder (model-placeholder model)
-         :width "560px"
-         :model @(re-frame/subscribe [model])
-         :status (and invalid-msg :error)
-         :status-icon? invalid-msg
-         :status-tooltip invalid-msg
-         :attr {:on-key-up key-up-input}
-         :on-change
-         (fn [val] (re-frame/dispatch-sync [event val]))]]])))
+      [labeled-el
+       field
+       [re-com/input-text
+        :change-on-blur? false
+        :placeholder (placeholder field)
+        :width "560px"
+        :model @(re-frame/subscribe [model])
+        :status (and invalid-msg :error)
+        :status-icon? invalid-msg
+        :status-tooltip invalid-msg
+        :attr {:on-key-up key-up-input}
+        :on-change
+        (fn [val] (re-frame/dispatch-sync [event val]))]])))
 
-(defn toggle-secondary-inputs-button []
-  [re-com/md-circle-icon-button
-   :md-icon-name
-   (if @(re-frame/subscribe [::subs/forms-new-form-secondary-fields-visible?])
-     "zmdi-chevron-up"
-     "zmdi-chevron-down")
-   :size :smaller
-   :tooltip
-   (if @(re-frame/subscribe [::subs/forms-new-form-secondary-fields-visible?])
-     "hide the secondary data input fields"
-     "show the secondary data input fields")
-   :on-click
-   (fn [_]
-     (re-frame/dispatch
-      [::events/user-clicked-toggle-secondary-new-form-fields]))])
-
-(defn header-left []
-  [re-com/h-box
-   :gap "5px"
-   :size "auto"
-   :children
-   [[re-com/md-circle-icon-button
-     :md-icon-name "zmdi-close"
-     :size :smaller
-     :tooltip "hide new form interface"
-     :on-click
-     (fn [_]
-       (re-frame/dispatch
-        [::events/user-clicked-new-form-button]))]
-    [toggle-secondary-inputs-button]]])
-
-(defn header-center []
-  [re-com/h-box
-   :size "auto"
-   :gap "5px"
-   :justify :center
-   :children [[re-com/box :child "New Form"]]])
-
-(defn header-right []
-  [re-com/h-box
-   :gap "5px"
-   :size "auto"
-   :justify :end
-   :children
-   [[re-com/md-circle-icon-button
-     :md-icon-name "zmdi-delete"
-     :size :smaller
-     :tooltip "clear this form: reset all fields to their default values"
-     :on-click
-     (fn [_]
-       (re-frame/dispatch
-        [::events/user-clicked-clear-new-form-interface]))]
-    [re-com/md-circle-icon-button
-     :md-icon-name "zmdi-help"
-     :size :smaller
-     :tooltip "help with creating a new form"
-     :disabled? true
-     :on-click
-     (fn [_]
-       (re-frame/dispatch
-        [::events/user-clicked-help-creating-new-form]))]]])
-
-(defn header []
-  [re-com/h-box
-   :gap "5px"
-   :children
-   [[header-left]
-    [header-center]
-    [header-right]]])
-
-(defn invalid-warning []
-  (when (= ::new-form-fsm/invalid @(re-frame/subscribe [:new-form/state]))
-    [re-com/alert-box
-     :alert-type :danger
-     :heading "Invalid Form"
-     :body @(re-frame/subscribe [:new-form/general-validation-error-message])]))
-
-(defn inputs [{:keys [grammaticalities]}]
-  [re-com/v-box
-   :class (str (styles/v-box-gap-with-nils) " " (styles/objlang))
-   :children
-   [[text-input :new-form/narrow-phonetic-transcription
-     ::events/user-changed-new-form-narrow-phonetic-transcription]
-    [text-input :new-form/phonetic-transcription
-     ::events/user-changed-new-form-phonetic-transcription]
-    [transcription grammaticalities]
-    [text-input :new-form/morpheme-break
-     ::events/user-changed-new-form-morpheme-break]
-    [text-input :new-form/morpheme-gloss
-     ::events/user-changed-new-form-morpheme-gloss]
-    [translations grammaticalities]]])
-
-(defn named-resource-single-select
-  ([choices model event]
-   (named-resource-single-select choices model event :name))
-  ([choices model event label-fn]
-   (named-resource-single-select choices model event label-fn false))
-  ([choices model event label-fn filter-box?]
+(defn- named-resource-single-select
+  ([model] (named-resource-single-select model {}))
+  ([model {:keys [filter-box? allow-empty?] :or {filter-box? false
+                                                 allow-empty? true}}]
    (when (some #{(utils/set-kw-ns-to-form model)}
                @(re-frame/subscribe [::subs/visible-form-fields]))
-     (let [field (utils/remove-namespace model)
+     (let [[field event] (field-event model)
+           label-fn (field->label-fn field :name)
+           choices (let [tmp (field->choices field)]
+                     (if (keyword? tmp)
+                       @(re-frame/subscribe [tmp])
+                       tmp))
            invalid-msg
            @(re-frame/subscribe [:new-form/field-specific-validation-error-message
                                  field])]
-       [labeled-input
-        model
+       [labeled-el
+        field
         [re-com/h-box
          :children
          [[re-com/single-dropdown
-           :choices (sort-by (comp str/lower-case :label)
-                             (for [r choices] {:id (:id r) :label (label-fn r)}))
+           :choices (concat (if allow-empty? [{:id nil :label "\u2205"}] [])
+                            (sort-by (comp str/lower-case :label)
+                                     (for [r choices] {:id (:id r) :label (label-fn r)})))
            :width (if invalid-msg "525px" "560px")
            :filter-box? filter-box?
            :model @(re-frame/subscribe [model])
@@ -361,13 +232,106 @@
            :on-change (fn [value] (re-frame/dispatch [event value]))]
           (when invalid-msg [widgets/field-invalid-warning invalid-msg])]]]))))
 
-(defn tags [available-tags]
+(defn- grammaticality []
+  [re-com/single-dropdown
+   :choices (for [g (distinct @(re-frame/subscribe [::subs/grammaticalities]))]
+              ^{:key (str "transcription-grammaticality-" g)}
+              {:id g :label g})
+   :width "50px"
+   :model @(re-frame/subscribe [:new-form/grammaticality])
+   :on-change (fn [grammaticality]
+                (re-frame/dispatch
+                 [::events/user-changed-new-form-grammaticality
+                  grammaticality]))])
+
+(defn- transcription []
+  (let [invalid-msg @(re-frame/subscribe
+                      [:new-form/field-specific-validation-error-message
+                       :transcription])]
+    [re-com/input-text
+     :change-on-blur? false
+     :placeholder "transcription"
+     :width "500px"
+     :model @(re-frame/subscribe [:new-form/transcription])
+     :status (and invalid-msg :error)
+     :status-icon? invalid-msg
+     :status-tooltip invalid-msg
+     :attr {:auto-focus true
+            :on-key-up key-up-input}
+     :on-change
+     (fn [transcription] (re-frame/dispatch-sync
+                          [::events/user-changed-new-form-transcription
+                           transcription]))]))
+
+(defn- grammaticality-transcription []
+  [labeled-el
+   :transcription
+   [re-com/h-box :gap "10px" :children [[grammaticality] [transcription]]]])
+
+(defn- translation-grammaticality [index]
+  [re-com/single-dropdown
+   :choices (for [g (distinct @(re-frame/subscribe [::subs/grammaticalities]))]
+              ^{:key (str "translation-" index "-grammaticality-" g)}
+              {:id g :label g})
+   :width "50px"
+   :model @(re-frame/subscribe [:new-form/translation-grammaticality index])
+   :on-change (fn [grammaticality]
+                (re-frame/dispatch
+                 [::events/user-changed-new-form-translation-grammaticality
+                  index grammaticality]))])
+
+(defn- translation-transcription [index]
+  (let [invalid-msg @(re-frame/subscribe
+                      [:new-form/field-specific-validation-error-message
+                       :translations])]
+    [re-com/input-text
+     :change-on-blur? false
+     :placeholder "translation"
+     :width "460px"
+     :model @(re-frame/subscribe [:new-form/translation-transcription index])
+     :status (and invalid-msg :error)
+     :status-icon? invalid-msg
+     :status-tooltip invalid-msg
+     :attr {:on-key-up key-up-input}
+     :on-change
+     (fn [transcription]
+       (re-frame/dispatch-sync
+        [::events/user-changed-new-form-translation-transcription
+         index transcription]))]))
+
+(defn- add-remove-translation-button [index]
+  [re-com/box
+   :class (styles/default)
+   :child (if (zero? index)
+            [add-new-translation-button]
+            [remove-translation-button index])])
+
+(defn- grammaticality-translation [index]
+  [labeled-el
+   (when (zero? index) :new-form/translations)
+   [re-com/h-box
+    :gap "10px"
+    :children
+    [[translation-grammaticality index]
+     [translation-transcription index]
+     [add-remove-translation-button index]]]])
+
+(defn- translations []
+  [re-com/v-box
+   :gap "10px"
+   :children
+   (for [index (range (count @(re-frame/subscribe [:new-form/translations])))]
+     ^{:key (str "translation-" index)}
+     [grammaticality-translation index])])
+
+(defn- tags []
   (when (some #{:form/tags} @(re-frame/subscribe [::subs/visible-form-fields]))
-    (let [invalid-msg
+    (let [available-tags @(re-frame/subscribe [::subs/mini-tags])
+          invalid-msg
           @(re-frame/subscribe [:new-form/field-specific-validation-error-message
                                 :tags])]
-      [labeled-input
-       :new-form/tags
+      [labeled-el
+       :tags
        [re-com/h-box
         :children
         [[re-com/selection-list
@@ -382,7 +346,7 @@
                         [::events/user-changed-new-form-tags tags]))]
          (when invalid-msg [widgets/field-invalid-warning invalid-msg])]]])))
 
-(defn date-elicited []
+(defn- date-elicited []
   (when (some #{:form/date-elicited}
               @(re-frame/subscribe [::subs/visible-form-fields]))
     (let [invalid-msg
@@ -392,7 +356,7 @@
        :class (styles/default)
        :gap "10px"
        :children
-       [[label :new-form/date-elicited]
+       [[label :date-elicited]
         ;; TODO: the datepicker of re-com doesn't work that well. For instance, the
         ;; :show-today? attribute doesn't work. This seems to be a known issue.
         [re-com/datepicker-dropdown
@@ -402,93 +366,66 @@
                       (re-frame/dispatch
                        [::events/user-changed-new-form-date-elicited
                         date-elicited]))]
-        [re-com/md-circle-icon-button
-         :md-icon-name "zmdi-delete"
-         :size :smaller
-         :tooltip "remove date elicited"
-         :on-click
-         (fn [_]
-           (re-frame/dispatch [::events/user-changed-new-form-date-elicited nil]))]
+        [reset-date-elicited-button]
         (when invalid-msg [widgets/field-invalid-warning invalid-msg])]])))
 
-(defn- person->name [person]
-  (str (:first-name person) " " (:last-name person)))
+(defn- inputs []
+  [re-com/v-box
+   :class (str (styles/v-box-gap-with-nils) " " (styles/objlang))
+   :children
+   [[text-input :new-form/narrow-phonetic-transcription]
+    [text-input :new-form/phonetic-transcription]
+    [grammaticality-transcription]
+    [text-input :new-form/morpheme-break]
+    [text-input :new-form/morpheme-gloss]
+    [translations]]])
 
-(defn- source->citation [{:keys [author year]}]
-  (str author " (" year ")"))
-
-(defn secondary-inputs [{:keys [elicitation-methods sources speakers
-                                syntactic-categories users]
-                         available-tags :tags}]
+(defn- secondary-inputs []
   (when @(re-frame/subscribe [::subs/forms-new-form-secondary-fields-visible?])
     [re-com/v-box
      :class (str (styles/v-box-gap-with-nils) " " (styles/objlang))
      :children
-     [[text-input :new-form/comments ::events/user-changed-new-form-comments]
-      [text-input :new-form/speaker-comments
-       ::events/user-changed-new-form-speaker-comments]
-      [named-resource-single-select elicitation-methods
-       :new-form/elicitation-method
-       ::events/user-changed-new-form-elicitation-method]
-      [tags available-tags]
-      [named-resource-single-select syntactic-categories
-       :new-form/syntactic-category
-       ::events/user-changed-new-form-syntactic-category]
+     [[text-input :new-form/comments]
+      [text-input :new-form/speaker-comments]
+      [named-resource-single-select :new-form/elicitation-method]
+      [tags]
+      [named-resource-single-select :new-form/syntactic-category]
       [date-elicited]
-      [named-resource-single-select speakers :new-form/speaker
-       ::events/user-changed-new-form-speaker person->name]
-      [named-resource-single-select users :new-form/elicitor
-       ::events/user-changed-new-form-elicitor person->name]
-      [named-resource-single-select users :new-form/verifier
-       ::events/user-changed-new-form-verifier person->name]
-      [named-resource-single-select sources :new-form/source
-       ::events/user-changed-new-form-source source->citation true]
+      [named-resource-single-select :new-form/speaker]
+      [named-resource-single-select :new-form/elicitor]
+      [named-resource-single-select :new-form/verifier]
+      [named-resource-single-select :new-form/source {:filter-box? true}]
       ;; TODO: files select. The original Dative has a custom search interface
       ;; that hits the POST /files/search endpoint to return the selectable
       ;; options.
-      [text-input :new-form/syntax ::events/user-changed-new-form-syntax]
-      [text-input :new-form/semantics
-       ::events/user-changed-new-form-semantics]
-      [named-resource-single-select statuses
-       :new-form/status ::events/user-changed-new-form-status]]]))
+      [text-input :new-form/syntax]
+      [text-input :new-form/semantics]
+      [named-resource-single-select :new-form/status {:allow-empty? false}]]]))
 
-(defn save-button []
-  [re-com/box
-   :child
-   [re-com/button
-    :label "Save"
-    :tooltip "create this new form"
-    :disabled? (not= :dativerf.fsms.new-form/ready
-                     @(re-frame/subscribe [:new-form/state]))
-    :on-click (fn [_e] (re-frame/dispatch
-                        [::events/user-clicked-create-new-form-button]))]])
+;; Headers and Footers
 
-(defn footer-center []
-  [re-com/h-box
-   :size "auto"
-   :gap "5px"
-   :justify :center
-   :children
-   [[save-button]
-    [toggle-secondary-inputs-button]]])
+(defn header []
+  (widgets/header
+   {:left [[hide-new-form-interface-button]
+           [toggle-secondary-inputs-button]]
+    :center [[re-com/box :child "New Form"]]
+    :right [[reset-new-form-values-button]
+            [help-creating-form-button]]}))
 
 (defn footer []
-  [re-com/h-box
-   :gap "5px"
-   :children
-   [[footer-center]]])
+  (widgets/footer
+   {:center [[save-button]
+             [toggle-secondary-inputs-button]]}))
 
 (defn interface []
   (when @(re-frame/subscribe [::subs/forms-new-form-interface-visible?])
-    (if-let [forms-new-data @(re-frame/subscribe [::subs/forms-new])]
-      [re-com/v-box
-       :gap "10px"
-       :class (styles/form-sub-interface)
-       :children
-       [[header]
-        [invalid-warning]
-        [inputs forms-new-data]
-        [secondary-inputs forms-new-data]
-        [footer]]]
-      (do (re-frame/dispatch [::events/fetch-new-form-data])
-          [re-com/throbber :size :large]))))
+    (re-frame/dispatch [::events/fetch-new-form-data]) ;; caching makes this often a no-op
+    [re-com/v-box
+     :gap "10px"
+     :class (styles/form-sub-interface)
+     :children
+     [[header]
+      [invalid-warning]
+      [inputs]
+      [secondary-inputs]
+      [footer]]]))
