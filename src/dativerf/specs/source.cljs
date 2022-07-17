@@ -92,7 +92,6 @@
 (s/def ::mini-source (s/keys :req-un
                              [::id
                               ::crossref
-                              ::crossref-source
                               ::type
                               ::key
                               ::journal
@@ -106,7 +105,10 @@
                               ::year
                               ::author
                               ::title
-                              ::note]))
+                              ::note]
+                             :opt-un
+                             [::crossref-source]))
+(s/def ::mini-sources (s/coll-of ::mini-source))
 
 ;; TODO: there is a lot of repetition between ::mini-source, ::source and
 ;; ::write-source. We could consider being clever and using s/merge to DRY this

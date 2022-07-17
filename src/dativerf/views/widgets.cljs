@@ -105,29 +105,31 @@
   text. The metadata map should have a key matching attr. If it does not have
   that key, a human-readable representation of the attr will be used as label
   and tooltip."
-  [metadata attr]
-  (let [showing? (r/atom false)
-        tooltip* (mutils/description metadata attr)]
-    [re-com/popover-tooltip
-     :label tooltip*
-     :showing? showing?
-     :width (when (> (count tooltip*) 80) "400px")
-     :anchor
-     [re-com/box
-      :class (str (styles/wider-attr-label) " " (styles/objlang) " "
-                  (styles/actionable))
-      :align :end
-      :padding "0 1em 0 0"
-      :attr {:on-mouse-over (re-com/handler-fn (reset! showing? true))
-             :on-mouse-out (re-com/handler-fn (reset! showing? false))}
-      :child (mutils/label-str metadata attr)]]))
+  ([metadata attr] (label-with-tooltip metadata styles/wider-attr-label attr))
+  ([metadata style attr]
+   (let [showing? (r/atom false)
+         tooltip (if attr (mutils/description metadata attr) "")]
+     [re-com/popover-tooltip
+      :label tooltip
+      :showing? showing?
+      :width (when (and attr (> (count tooltip) 80)) "400px")
+      :anchor
+      [re-com/box
+       :class (str (style) " " (styles/objlang) " " (styles/actionable))
+       :align :end
+       :padding "0 1em 0 0"
+       :attr {:on-mouse-over (re-com/handler-fn (reset! showing? true))
+              :on-mouse-out (re-com/handler-fn (reset! showing? false))}
+       :child (if attr (mutils/label-str metadata attr) "")]])))
 
-(defn labeled-el [metadata attr el]
-  [re-com/h-box
-   :gap "10px"
-   :children
-   [[label-with-tooltip metadata attr]
-    el]])
+(defn labeled-el
+  ([metadata attr el] (labeled-el metadata styles/wider-attr-label attr el))
+  ([metadata style attr el]
+   [re-com/h-box
+    :gap "10px"
+    :children
+    [[label-with-tooltip metadata style attr]
+     el]]))
 
 (defn v-box [els]
   [re-com/v-box

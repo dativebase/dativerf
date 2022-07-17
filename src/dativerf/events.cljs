@@ -25,6 +25,7 @@
 (def app-dative-servers-url "https://app.dative.ca/servers.json")
 (def max-forms-in-memory 200)
 (def max-pages-in-memory 50) ;; max no. of keys in :forms-paginator/cache
+(def seconds-until-expiry-of-mini-resources 300)
 
 (defn- warn [msg] (println (str "WARNING: " msg)))
 
@@ -42,22 +43,14 @@
    (fn [db [_ form-id]] (update-in db (path-fn db form-id) not))))
 
 (doseq [[event path]
-        {::user-clicked-forms-labels-button
-         [:forms/labels-on?]
-         ::user-clicked-toggle-secondary-new-form-fields
-         [:forms/new-form-secondary-fields-visible?]
-         ::user-clicked-export-forms-button
-         [:forms/export-interface-visible?]
-         ::user-clicked-form-settings-button
-         [:forms/settings-interface-visible?]
-         ::user-clicked-toggle-form-field-visibility-interface
-         [:forms/settings-field-visibility-interface-visible?]
-         ::user-clicked-new-form-button
-         [:forms/new-form-interface-visible?]
-         ::user-clicked-edit-general-settings-button
-         [:settings/general-edit-interface-visible?]
-         ::user-clicked-edit-input-validation-settings-button
-         [:settings/input-validation-edit-interface-visible?]}]
+        {::user-clicked-edit-general-settings-button [:settings/general-edit-interface-visible?]
+         ::user-clicked-edit-input-validation-settings-button [:settings/input-validation-edit-interface-visible?]
+         ::user-clicked-export-forms-button [:forms/export-interface-visible?]
+         ::user-clicked-form-settings-button [:forms/settings-interface-visible?]
+         ::user-clicked-forms-labels-button [:forms/labels-on?]
+         ::user-clicked-new-form-button [:forms/new-form-interface-visible?]
+         ::user-clicked-toggle-form-field-visibility-interface [:forms/settings-field-visibility-interface-visible?]
+         ::user-clicked-toggle-secondary-new-form-fields [:forms/new-form-secondary-fields-visible?]}]
   (register-toggler event path))
 
 (def get-request
@@ -71,11 +64,50 @@
 
 (def delete-request (assoc get-request :method :delete))
 
+(defn- mini-resources-fresh? [resources]
+  (and resources
+       (< (utils/seconds-ago (:dative/fetched-at resources))
+          seconds-until-expiry-of-mini-resources)))
+
+(defn- prune-forms [db]
+  (let [forms (->> (get-in db [:old-states (:old db) :forms])
+                   vals
+                   (sort-by (comp coerce/to-long :dative/fetched-at))
+                   (drop (max 0 (- (count (get-in db [:old-states (:old db) :forms]))
+                                   max-forms-in-memory)))
+                   (map (juxt :uuid identity))
+                   (into {}))]
+    (-> db
+        (assoc-in [:old-states (:old db) :forms] forms)
+        (assoc-in [:old-states (:old db) :forms/view-state]
+                  (-> db
+                      (get-in [:old-states (:old db)
+                               :forms/view-state])
+                      (select-keys (keys forms)))))))
+
+(defn- prune-pages [db]
+  (update db
+          :forms-paginator/cache
+          (fn [cache]
+            (->> cache
+                 (sort-by (comp coerce/to-long :fetched-at val))
+                 (drop (max 0 (- (count (:forms-paginator/cache db))
+                                 max-pages-in-memory)))
+                 (into {})))))
+
+(defn- prune-caches
+  "Remove the stale caches of forms and pages from the DB. We only keep the
+  max-forms-in-memory newest forms and max-pages-in-memory newest pages.
+  TODO: we should probably prune the cache based on absolute age of the cached
+  items, but the current strategy is probably fine for now."
+  [db]
+  (-> db prune-forms prune-pages))
+
+;; Helper functions for processing form-related responses.
+
 (defn- forms->uuid-keyed-forms-map [forms fetched-at]
   (->> forms
-       (map (comp
-             #(assoc % :dative/fetched-at fetched-at)
-             form-model/parse-form))
+       (map (comp #(assoc % :dative/fetched-at fetched-at) form-model/parse-form))
        (map (juxt :uuid identity))
        (into {})))
 
@@ -122,39 +154,39 @@
                  :forms-paginator/first-form first-form
                  :forms-paginator/last-form last-form}}))
 
-(defn- prune-forms [db]
-  (let [forms (->> (get-in db [:old-states (:old db) :forms])
-                   vals
-                   (sort-by (comp coerce/to-long :dative/fetched-at))
-                   (drop (max 0 (- (count (get-in db [:old-states (:old db) :forms]))
-                                   max-forms-in-memory)))
-                   (map (juxt :uuid identity))
-                   (into {}))]
+(defn- update-db-given-created-form
+  "We just created a new form. In response, we update our known state of the OLD
+  to accommodate that fact. We update the paginator and add the new form to our
+  cache of forms. The paginator state is updated based on the incremented count
+  of forms known to be in the OLD. If we are viewing the page where the new form
+  should be displayed, then the paginator's state related to the page currently
+  being viewed may change also."
+  [{:as db :keys [forms-paginator/items-per-page
+                  forms-paginator/first-form
+                  forms-paginator/current-page-forms]} raw-created-form]
+  (let [forms (forms->uuid-keyed-forms-map
+               [(-> raw-created-form
+                    (assoc :uuid (:UUID raw-created-form)) ;; What?!!!
+                    utils/->kebab-case-recursive)]
+               (.now js/Date))
+        new-count (inc (:forms-paginator/count db))]
     (-> db
-        (assoc-in [:old-states (:old db) :forms] forms)
-        (assoc-in [:old-states (:old db) :forms/view-state]
-                  (-> db
-                      (get-in [:old-states (:old db)
-                               :forms/view-state])
-                      (select-keys (keys forms)))))))
+        (update-in [:old-states (:old db) :forms] merge forms)
+        (update-in [:old-states (:old db) :forms/view-state]
+                   merge (forms->view-states forms db))
+        (merge
+         (assoc
+          (utils/select-keys-by-ns "forms-paginator" db)
+          :forms-paginator/last-form (min new-count (+ first-form (dec items-per-page)))
+          :forms-paginator/last-page (Math/ceil (/ new-count items-per-page))
+          :forms-paginator/count new-count
+          :forms-paginator/current-page-forms
+          (if (= items-per-page (count current-page-forms))
+            current-page-forms
+            (conj current-page-forms (-> forms first key))))))))
 
-(defn- prune-pages [db]
-  (update db
-          :forms-paginator/cache
-          (fn [cache]
-            (->> cache
-                 (sort-by (comp coerce/to-long :fetched-at val))
-                 (drop (max 0 (- (count (:forms-paginator/cache db))
-                                 max-pages-in-memory)))
-                 (into {})))))
 
-(defn- prune-caches
-  "Remove the stale caches of forms and pages from the DB. We only keep the
-  max-forms-in-memory newest forms and max-pages-in-memory newest pages.
-  TODO: we should probably prune the cache based on absolute age of the cached
-  items, but the current strategy is probably fine for now."
-  [db]
-  (-> db prune-forms prune-pages))
+
 
 (re-frame/reg-event-db ::initialize-db (fn-traced [_ _] db/default-db))
 
@@ -224,7 +256,6 @@
                                 :shiftKey true}]]] ;; C-A
                 :clear-keys
                 [[{:keyCode 27}]]
-
                 :always-listen-keys
                 [{:keyCode 72 :ctrlKey true :shiftKey true}   ;; C-H
                  {:keyCode 76 :ctrlKey true :shiftKey true}   ;; C-L
@@ -389,26 +420,16 @@
  (fn-traced [db _]
             (assoc db :forms/visible-fields db/default-visible-form-fields)))
 
-(re-frame/reg-event-db
- ::user-changed-current-old-instance
- (fn-traced [db [event old]]
-            (-> db
-                (assoc :old old)
-                (fsms/update-state login/state-machine :login/state event))))
-
-(re-frame/reg-event-db
- ::user-changed-username
- (fn-traced [db [event username]]
-            (-> db
-                (assoc :login/username username)
-                (fsms/update-state login/state-machine :login/state event))))
-
-(re-frame/reg-event-db
- ::user-changed-password
- (fn-traced [db [event password]]
-            (-> db
-                (assoc :login/password password)
-                (fsms/update-state login/state-machine :login/state event))))
+(doseq [[login-changed-event login-key]
+        {::user-changed-current-old-instance :old
+         ::user-changed-password :login/password
+         ::user-changed-username :login/username}]
+  (re-frame/reg-event-db
+   login-changed-event
+   (fn-traced [db [event value]]
+              (-> db
+                  (assoc login-key value)
+                  (fsms/update-state login/state-machine :login/state event)))))
 
 (re-frame/reg-event-fx
  ::user-clicked-back-to-browse-button
@@ -512,37 +533,6 @@
 (re-frame/reg-event-db
  ::turn-off-force-forms-reload
  (fn-traced [db _] (assoc db :forms/force-reload? false)))
-
-(defn- update-db-given-created-form
-  "We just created a new form. In response, we update our known state of the OLD
-  to accommodate that fact. We update the paginator and add the new form to our
-  cache of forms. The paginator state is updated based on the incremented count
-  of forms known to be in the OLD. If we are viewing the page where the new form
-  should be displayed, then the paginator's state related to the page currently
-  being viewed may change also."
-  [{:as db :keys [forms-paginator/items-per-page
-                  forms-paginator/first-form
-                  forms-paginator/current-page-forms]} raw-created-form]
-  (let [forms (forms->uuid-keyed-forms-map
-               [(-> raw-created-form
-                    (assoc :uuid (:UUID raw-created-form)) ;; What?!!!
-                    utils/->kebab-case-recursive)]
-               (.now js/Date))
-        new-count (inc (:forms-paginator/count db))]
-    (-> db
-        (update-in [:old-states (:old db) :forms] merge forms)
-        (update-in [:old-states (:old db) :forms/view-state]
-                   merge (forms->view-states forms db))
-        (merge
-         (assoc
-          (utils/select-keys-by-ns "forms-paginator" db)
-          :forms-paginator/last-form (min new-count (+ first-form (dec items-per-page)))
-          :forms-paginator/last-page (Math/ceil (/ new-count items-per-page))
-          :forms-paginator/count new-count
-          :forms-paginator/current-page-forms
-          (if (= items-per-page (count current-page-forms))
-            current-page-forms
-            (conj current-page-forms (-> forms first key))))))))
 
 (re-frame/reg-event-db
  ::form-created
@@ -729,18 +719,44 @@
 (re-frame/reg-event-fx
  ::fetch-new-form-data
  (fn-traced [{:keys [db]} _]
-            {:http-xhrio
-             (assoc get-request
-                    :uri (old/forms-new (old-model/old db))
-                    :on-success [::forms-new-fetched]
-                    :on-failure [::forms-new-not-fetched])}))
-
-(def seconds-until-expiry-of-mini-resources 300)
-
-(defn mini-resources-fresh? [resources]
-  (and resources
-       (< (utils/seconds-ago (:dative/fetched-at resources))
-          seconds-until-expiry-of-mini-resources)))
+            (let [{:keys [mini-elicitation-methods
+                          grammaticalities
+                          mini-sources
+                          mini-speakers
+                          mini-syntactic-categories
+                          mini-tags
+                          mini-users]} (get-in db [:old-states (:old db)])
+                  elicitation-methods-fresh? (mini-resources-fresh? mini-elicitation-methods)
+                  grammaticalities-fresh? (mini-resources-fresh? grammaticalities)
+                  sources-fresh? (mini-resources-fresh? mini-sources)
+                  speakers-fresh? (mini-resources-fresh? mini-speakers)
+                  syntactic-categories-fresh? (mini-resources-fresh? mini-syntactic-categories)
+                  tags-fresh? (mini-resources-fresh? mini-tags)
+                  users-fresh? (mini-resources-fresh? mini-users)]
+              (when (or (not elicitation-methods-fresh?)
+                        (not grammaticalities-fresh?)
+                        (not sources-fresh?)
+                        (not speakers-fresh?)
+                        (not syntactic-categories-fresh?)
+                        (not tags-fresh?)
+                        (not users-fresh?))
+                ;; These GET params control what the OLD returns to us. If we
+                ;; add a resource name as an attribute with an empty string
+                ;; value, then that resource will NOT be returned.
+                (let [params (cond-> {}
+                               elicitation-methods-fresh? (assoc :elicitation-methods "")
+                               grammaticalities-fresh? (assoc :grammaticalities "")
+                               sources-fresh? (assoc :sources "")
+                               speakers-fresh? (assoc :speakers "")
+                               syntactic-categories-fresh? (assoc :syntactic-categories "")
+                               tags-fresh? (assoc :tags "")
+                               users-fresh? (assoc :users ""))]
+                  {:http-xhrio
+                   (assoc get-request
+                          :uri (old/forms-new (old-model/old db))
+                          :params params
+                          :on-success [::forms-new-fetched]
+                          :on-failure [::forms-new-not-fetched])})))))
 
 (re-frame/reg-event-fx
  ::fetch-settings-new-data
@@ -790,20 +806,21 @@
 (re-frame/reg-event-fx
  ::server-authenticated
  (fn-traced [{:keys [db]} [event {:keys [authenticated user]}]]
-            (if authenticated
-              {:db (-> db
-                       (fsms/update-state login/state-machine :login/state event)
-                       (assoc :user (utils/->kebab-case-recursive user)
-                              :login/username ""
-                              :login/password ""))
-               :fx [[:dispatch [::navigate
-                                {:handler :forms-last-page
-                                 :route-params
-                                 {:old (old-model/slug db)}}]]]}
-              {:db (-> db
-                       (fsms/update-state login/state-machine :login/state
-                                          ::server-not-authenticated)
-                       (assoc :user nil))})))
+            (let [new-db (assoc db :login/retries 0)]
+              (if authenticated
+                {:db (-> new-db
+                         (fsms/update-state login/state-machine :login/state event)
+                         (assoc :user (utils/->kebab-case-recursive user)
+                                :login/username ""
+                                :login/password ""))
+                 :fx [[:dispatch [::navigate
+                                  {:handler :forms-last-page
+                                   :route-params
+                                   {:old (old-model/slug db)}}]]]}
+                {:db (-> new-db
+                         (fsms/update-state login/state-machine :login/state
+                                            ::server-not-authenticated)
+                         (assoc :user nil))}))))
 
 (re-frame/reg-event-db
  ::applicationsettings-fetched
@@ -830,19 +847,38 @@
  (fn-traced [db _]
             (assoc db :system/error :unicode-data-not-fetched)))
 
-;; TODO: change this so it's more like ::settings-new-data-fetched, i.e., it
-;; saves the fetched data under the correct mini- location.
 (re-frame/reg-event-db
  ::forms-new-fetched
- (fn-traced [db [_event forms-new]]
-             (assoc-in
-              db
-              [:old-states (:old db) :forms-new]
-              (utils/->kebab-case-recursive forms-new))))
+ (fn-traced [db [_ response]]
+            (try
+              (let [processed-response (form-model/process-forms-new-response
+                                        response)
+                    fetched-at (time/now)]
+                (reduce
+                 (fn [agg mini-resource]
+                   (if-let [resources (mini-resource processed-response)]
+                     (let [key (get {:grammaticalities :grammaticalities}
+                                    mini-resource
+                                    (keyword (str "mini-" (name mini-resource))))]
+                       (assoc-in agg [:old-states (:old db) key]
+                                 {:dative/fetched-at fetched-at :items resources}))
+                     agg))
+                 db
+                 [:elicitation-methods :grammaticalities :sources :speakers
+                  :syntactic-categories :tags :users]))
+              (catch ExceptionInfo e
+                (warn "The new form data fetched from the OLD are invalid.")
+                (assoc db
+                       :system/error
+                       (if (= :invalid-new-form-data
+                              (-> e ex-data :error-code))
+                         :new-form-data-invalid-by-spec
+                         :new-form-data-invalid))))))
 
 ;; TODO: this is crazy! The applicationsettings/new payload is 1.3MB and takes
 ;; about 2s to download. Most of this is likely due to the languages payload.
-;; This should be static and not in the OLD db.
+;; This should be static and not in the OLD db. At the very least, we could
+;; persist the languages client-side across requests using localStorage.
 (re-frame/reg-event-db
  ::settings-new-data-fetched
  (fn-traced [db [_ response]]
@@ -912,6 +948,7 @@
                                                      :items-per-page items-per-page}]
                             {:form-uuids current-page-forms
                              :fetched-at fetched-at})
+                  (assoc :forms-page/retries 0)
                   prune-caches
                   (merge paginator)))))
 
@@ -1097,11 +1134,12 @@
                          [::initiated-settings-update]
                          [::edited-settings-data-invalid])}))
 
+;; User changed events for each editable application settings field
 (doseq [k application-settings/editable-keys]
   (let [e (keyword "dativerf.events"
                    (str "user-changed-settings-" (name k)))]
     (re-frame/reg-event-db
-     e (fn-traced [db [event value]]
+     e (fn-traced [db [_ value]]
                   (-> db
                       (assoc-in [:settings/edited-settings k] value)
                       (transition-edited-settings-fsm ::user-changed-edited-settings-data)

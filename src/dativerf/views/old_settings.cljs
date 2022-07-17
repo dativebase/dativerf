@@ -4,7 +4,6 @@
             [re-com.core :as re-com :refer [at]]
             [dativerf.events :as events]
             [dativerf.models.application-settings :as model]
-            [dativerf.models.old :as old-model]
             [dativerf.models.utils :as mutils]
             [dativerf.routes :as routes]
             [dativerf.specs.application-settings :as spec]
@@ -170,7 +169,7 @@
 
 ;; Input Widgets
 
-(defn- validation-select [model metadata]
+(defn- validation-select [model]
   (let [[field event] (field-event model)
         invalid-msg @(re-frame/subscribe
                       [:settings-edit/field-specific-validation-error-message
@@ -187,7 +186,7 @@
         :on-change (fn [value] (re-frame/dispatch [event value]))]
        (when invalid-msg [widgets/field-invalid-warning invalid-msg])]]]))
 
-(defn- checkbox [model metadata]
+(defn- checkbox [model]
   (let [[field event] (field-event model)]
     [labeled-el
      field
@@ -197,7 +196,7 @@
         :model @(re-frame/subscribe [model])
         :on-change (fn [value] (re-frame/dispatch [event value]))]]]]))
 
-(defn- orthography-select [model metadata]
+(defn- orthography-select [model]
   (let [[field event] (field-event model)
         invalid-msg @(re-frame/subscribe
                       [:settings-edit/field-specific-validation-error-message
@@ -228,6 +227,7 @@
      :settings-edit/field-specific-validation-error-message
      {:submit-event ::events/user-clicked-save-application-settings-button}]))
 
+;; TODO: clever out the seemingly redundant second iteration through languages
 (defn- match-language
   "Return the first 8 languages that match search term s. Place any exact match
   at the start. Sort the rest alphabetically."
@@ -281,7 +281,7 @@
 (defn language-typeahead
   "Display for typing a language Id or Name and having auto-completion from the
   ISO 639-3 languages dataset."
-  [model-type model metadata]
+  [model-type metadata model]
   (let [[field event] (field-event model)
         data-source-fn (if (= :name model-type)
                          match-language-name
@@ -307,13 +307,15 @@
         :model @(re-frame/subscribe [model])]
        [suggested-counterpart model model-type metadata]]]]))
 
-(def language-name-typeahead (partial language-typeahead :name))
+(def language-name-typeahead
+  (partial language-typeahead :name model/settings-metadata))
 
-(def language-id-typeahead (partial language-typeahead :id))
+(def language-id-typeahead
+  (partial language-typeahead :id model/settings-metadata))
 
 (defn unrestricted-users-select
   "Display for selection a set of unrestricted users."
-  [metadata]
+  []
   (let [field :unrestricted-users
         invalid-msg @(re-frame/subscribe
                       [:settings-edit/field-specific-validation-error-message
@@ -365,24 +367,19 @@
                         (utils/datetime->human-string datetime-modified)]]]]]]))
 
 (defn- general-settings-edit []
-  (re-frame/dispatch [::events/fetch-settings-new-data])
+  (re-frame/dispatch [::events/fetch-settings-new-data]) ;; caching makes this often a no-op
   [re-com/v-box
    :src (at)
    :gap "1em"
    :class (str (styles/v-box-gap-with-nils) " " (styles/objlang))
    :children
    [[widgets/v-box-gap-with-nils
-     [[language-name-typeahead :edited-settings/object-language-name
-       model/settings-metadata]
-      [language-id-typeahead :edited-settings/object-language-id
-       model/settings-metadata]]]
+     [[language-name-typeahead :edited-settings/object-language-name]
+      [language-id-typeahead :edited-settings/object-language-id]]]
     [widgets/v-box-gap-with-nils
-     [[language-name-typeahead :edited-settings/metalanguage-name
-       model/settings-metadata]
-      [language-id-typeahead :edited-settings/metalanguage-id
-       model/settings-metadata]]]
-    [widgets/v-box-gap-with-nils [[unrestricted-users-select
-                                   model/settings-metadata]]]]])
+     [[language-name-typeahead :edited-settings/metalanguage-name]
+      [language-id-typeahead :edited-settings/metalanguage-id]]]
+    [widgets/v-box-gap-with-nils [[unrestricted-users-select]]]]])
 
 (defn input-validation-settings-edit []
   (re-frame/dispatch [::events/fetch-settings-new-data])
@@ -392,23 +389,17 @@
    :class (str (styles/v-box-gap-with-nils) " " (styles/objlang))
    :children
    [[widgets/v-box-gap-with-nils
-     [[validation-select :edited-settings/orthographic-validation
-       model/settings-metadata]
-      [orthography-select :edited-settings/storage-orthography
-       model/settings-metadata]]]
+     [[validation-select :edited-settings/orthographic-validation]
+      [orthography-select :edited-settings/storage-orthography]]]
     [widgets/v-box-gap-with-nils
-     [[validation-select :edited-settings/narrow-phonetic-validation
-       model/settings-metadata]
+     [[validation-select :edited-settings/narrow-phonetic-validation]
       [text-input :edited-settings/narrow-phonetic-inventory]]]
     [widgets/v-box-gap-with-nils
-     [[validation-select :edited-settings/broad-phonetic-validation
-       model/settings-metadata]
+     [[validation-select :edited-settings/broad-phonetic-validation]
       [text-input :edited-settings/broad-phonetic-inventory]]]
     [widgets/v-box-gap-with-nils
-     [[validation-select :edited-settings/morpheme-break-validation
-       model/settings-metadata]
-      [checkbox :edited-settings/morpheme-break-is-orthographic
-       model/settings-metadata]
+     [[validation-select :edited-settings/morpheme-break-validation]
+      [checkbox :edited-settings/morpheme-break-is-orthographic]
       [text-input :edited-settings/phonemic-inventory]
       [text-input :edited-settings/morpheme-delimiters]]]
     [widgets/v-box-gap-with-nils
