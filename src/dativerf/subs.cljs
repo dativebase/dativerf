@@ -1,10 +1,14 @@
 (ns dativerf.subs
   (:require
-   [re-frame.core :as re-frame]
+   [dativerf.db :as db]
    [dativerf.fsms.login :as login]
    [dativerf.models.application-settings :as application-settings]
    [dativerf.models.form :as form-model]
-   [dativerf.models.old :as old-model]))
+   [dativerf.models.old :as old-model]
+   [re-frame.core :as re-frame]))
+
+(defn- form-view-state [db form-id]
+  (get-in db [:old-states (:old db) :forms/view-state form-id]))
 
 (doseq [[subscription path]
         {::active-route [:active-route]
@@ -162,6 +166,13 @@
  (fn [db _] (or (:new-form-general-validation-error-message db)
                 form-model/new-form-validation-message)))
 
+(re-frame/reg-sub
+ ::form-edit-general-validation-error-message
+ (fn [db [_ form-id]]
+   (or (some-> db (form-view-state form-id)
+               :edit-general-validation-error-message)
+       form-model/new-form-validation-message)))
+
 (doseq [[subscription field-specific-validation-messages-key]
         {:new-form/field-specific-validation-error-message :new-form-field-specific-validation-error-messages
          :settings-edit/field-specific-validation-error-message :edited-settings-field-specific-validation-error-messages}]
@@ -188,13 +199,51 @@
                      (get-in db [:old-states (:old db) :forms])
                      form-ids)))
 
-(defn- form-view-state [db form-id]
-  (get-in db [:old-states (:old db) :forms/view-state form-id]))
-
 (doseq [[subscription key]
         {::form-expanded? :expanded?
          ::form-export-interface-visible? :export-interface-visible?
-         ::form-export-format :export-format}]
+         ::form-export-format :export-format
+         ::form-edit-interface-visible? :edit-interface-visible?
+         ::form-edit-secondary-fields-visible? :edit-secondary-fields-visible?
+         ::form-edit-state :edit-fsm-state}]
   (re-frame/reg-sub
    subscription
-   (fn [db [_ form-id]] (-> db (form-view-state form-id) key))))
+   (fn [db [_ form-id]]
+     (-> db (form-view-state form-id) key))))
+
+(re-frame/reg-sub
+ ::form-edit-field-specific-validation-error-messages
+ (fn [db [_ field form-id]]
+   (-> db
+       (form-view-state form-id)
+       :edit-field-specific-validation-error-messages
+       field)))
+
+(doseq [key form-model/editable-keys]
+  (re-frame/reg-sub
+   (keyword "edit-form" key)
+   (fn [db [_ form-id]] (-> db (form-view-state form-id) :edit-state key))))
+
+(re-frame/reg-sub
+ ::edit-form-form-changed?
+ (fn [db [_ form-id]]
+   (let [server-form
+         (-> db
+             (get-in [:old-states (:old db) :forms form-id])
+             form-model/read-form->write-form
+             (update :date-elicited form-model/stringify-date))
+         local-form (form-model/edit-form db form-id)]
+     (not= local-form server-form))))
+
+(re-frame/reg-sub
+ ::new-form-form-changed?
+ (fn [db _]
+   (not= (form-model/new-form db) db/default-new-form-state)))
+
+(doseq [key [:grammaticality
+             :transcription]]
+  (re-frame/reg-sub
+   (keyword "edit-form" (str "translation-" (name key)))
+   (fn [db [_ index form-id]]
+     (get-in (form-view-state db form-id)
+             [:edit-state :translations index key]))))

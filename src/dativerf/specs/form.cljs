@@ -172,13 +172,11 @@
 (s/def :write-form/elicitation-method (s/nilable ::common/id))
 (s/def :write-form/syntactic-category (s/nilable ::syntactic-category/id))
 (s/def :write-form/speaker (s/nilable ::speaker/id))
-(s/def :write-form/elicitor (s/nilable ::common/id))
-(s/def :write-form/verifier (s/nilable ::common/id))
-(s/def :write-form/source (s/nilable ::common/id))
-(s/def :write-form/tag ::common/id)
-(s/def :write-form/tags (s/coll-of :write-form/tag :distinct true))
-(s/def :write-form/file ::common/id)
-(s/def :write-form/files (s/coll-of :write-form/file :distinct true))
+(s/def :write-form/elicitor (s/nilable ::user/id))
+(s/def :write-form/verifier (s/nilable ::user/id))
+(s/def :write-form/source (s/nilable ::source/id))
+(s/def :write-form/tags (s/coll-of ::tag/id :distinct true))
+(s/def :write-form/files (s/coll-of ::file/id :distinct true))
 
 (defn- one-non-empty-transcription-type-value [form]
   (> (->> (select-keys form

@@ -43,6 +43,14 @@
    :new-application-settings-data-invalid invalid-application-settings-new
    :new-form-data-invalid-by-spec invalid-form-new
    :new-form-data-invalid invalid-form-new
+   :form-not-created-unexpected-error
+   (str "Your attempt to create a form failed unexpectedly. The cause might be"
+        " that your session has grown old. If so, the solution is to"
+        " re-authenticate.")
+   :form-not-updated-unexpected-error
+   (str "Your attempt to update a form failed unexpectedly. The cause might be"
+        " that your session has grown old. If so, the solution is to"
+        " re-authenticate.")
    :unicode-data-not-fetched
    (str "Sadly Dative was unable to fetch the Unicode data that allows it to"
         " name the characters used in orthographies and inventories. "

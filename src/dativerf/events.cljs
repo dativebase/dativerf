@@ -7,9 +7,10 @@
    [cljs-time.coerce :as coerce]
    [dativerf.db :as db]
    [dativerf.fsms :as fsms]
+   [dativerf.fsms.edit-form :as edit-form-fsm]
+   [dativerf.fsms.edit-settings :as application-settings-edit-fsm]
    [dativerf.fsms.login :as login]
    [dativerf.fsms.new-form :as new-form-fsm]
-   [dativerf.fsms.edit-settings :as application-settings-edit-fsm]
    [dativerf.models.application-settings :as application-settings]
    [dativerf.models.form :as form-model]
    [dativerf.models.old :as old-model]
@@ -61,7 +62,7 @@
    :cookie-policy :standard})
 
 (def post-request (assoc get-request :method :post))
-
+(def put-request (assoc get-request :method :put))
 (def delete-request (assoc get-request :method :delete))
 
 (defn- mini-resources-fresh? [resources]
@@ -69,7 +70,13 @@
        (< (utils/seconds-ago (:dative/fetched-at resources))
           seconds-until-expiry-of-mini-resources)))
 
-(defn- prune-forms [db]
+(defn- prune-forms
+  "NOTE: we are not pruning the form view state here or anywhere else. The
+  rationale is so that we can maintain display state and edit state even when
+  the state of the data from the server has gone stale. This may lead to
+  performance issues for users who browse through many forms, but the benefit of
+  not losing edit state outweighs that concern at the moment, IMO."
+  [db]
   (let [forms (->> (get-in db [:old-states (:old db) :forms])
                    vals
                    (sort-by (comp coerce/to-long :dative/fetched-at))
@@ -77,13 +84,7 @@
                                    max-forms-in-memory)))
                    (map (juxt :uuid identity))
                    (into {}))]
-    (-> db
-        (assoc-in [:old-states (:old db) :forms] forms)
-        (assoc-in [:old-states (:old db) :forms/view-state]
-                  (-> db
-                      (get-in [:old-states (:old db)
-                               :forms/view-state])
-                      (select-keys (keys forms)))))))
+    (assoc-in db [:old-states (:old db) :forms] forms)))
 
 (defn- prune-pages [db]
   (update db
@@ -114,10 +115,7 @@
 (defn- forms->view-states [forms db]
   (let [default-form-view-state (db/default-form-view-state db)]
     (->> forms
-         keys
-         (map (juxt
-               identity
-               (constantly default-form-view-state)))
+         (map (juxt key (constantly default-form-view-state)))
          (into {}))))
 
 (defn- reformat-forms-response
@@ -168,7 +166,7 @@
                [(-> raw-created-form
                     (assoc :uuid (:UUID raw-created-form)) ;; What?!!!
                     utils/->kebab-case-recursive)]
-               (.now js/Date))
+               (time/now))
         new-count (inc (:forms-paginator/count db))]
     (-> db
         (update-in [:old-states (:old db) :forms] merge forms)
@@ -185,8 +183,14 @@
             current-page-forms
             (conj current-page-forms (-> forms first key))))))))
 
-
-
+(defn- update-db-given-updated-form [db raw-updated-form]
+  (update-in
+   db
+   [:old-states (:old db) :forms]
+   merge
+   (forms->uuid-keyed-forms-map
+    [(utils/->kebab-case-recursive raw-updated-form)]
+    (time/now))))
 
 (re-frame/reg-event-db ::initialize-db (fn-traced [_ _] db/default-db))
 
@@ -339,7 +343,7 @@
 
 (defn- invalidate-new-form-cache [db]
     (assoc db
-           :new-form nil
+           :new-form nil ;; TODO: what is :new-form used for? anything?
            :new-form-general-validation-error-message nil
            :new-form-field-specific-validation-error-messages {}))
 
@@ -354,8 +358,45 @@
     cache-new-form))
 
 (doseq [event [::new-form-data-invalid
-               ::no-op]]
+               ::new-form-no-op]]
   (re-frame/reg-event-db event transition-new-form-fsm-db-handler))
+
+;; Edit Form Form Events
+
+(defn- cache-edit-form [db form-id]
+  (let [edit-form (form-model/edit-form db form-id)]
+    (assoc-in
+     db
+     [:old-states (:old db) :forms/view-state form-id
+      :edit-field-specific-validation-error-messages]
+     (form-model/new-form-field-specific-validation-error-messages edit-form))))
+
+(defn invalidate-edit-form-cache [db form-id]
+  (update-in
+   db
+   [:old-states (:old db) :forms/view-state form-id]
+   (fn [state]
+     (assoc state
+            :edit-field-specific-validation-error-messages {}
+            :edit-general-validation-error-message nil))))
+
+(defn-traced transition-edit-form-fsm [db form-id event]
+  (fsms/update-in-state
+   db
+   edit-form-fsm/state-machine
+   [:old-states (:old db) :forms/view-state form-id :edit-fsm-state]
+   event))
+
+(defn-traced transition-edit-form-fsm-db-handler [db [event form-id]]
+  (cond-> db
+    :always
+    (transition-edit-form-fsm form-id ::edit-form-data-invalid)
+    (= ::edit-form-data-invalid event)
+    (cache-edit-form form-id)))
+
+(doseq [event [::edit-form-data-invalid
+               ::edit-form-no-op]]
+  (re-frame/reg-event-db event transition-edit-form-fsm-db-handler))
 
 ;; Edited Settings Form Events
 
@@ -385,7 +426,7 @@
     cache-edited-settings))
 
 (doseq [event [::edited-settings-data-invalid
-               ::no-op]]
+               ::edited-settings-no-op]]
   (re-frame/reg-event-db event transition-edited-settings-fsm-db-handler))
 
 ;; Login Page/Form Events
@@ -398,7 +439,7 @@
 
 (doseq [event [::username-invalidated-login
                ::password-invalidated-login
-               ::no-op]]
+               ::login-no-op]]
   (re-frame/reg-event-db event transition-login-fsm-db-handler))
 
 (re-frame/reg-event-db
@@ -463,7 +504,7 @@
                                (= state ::login/is-ready)
                                [::initiated-authentication]
                                :else
-                               [::no-op])})))
+                               [::login-no-op])})))
 
 (re-frame/reg-event-fx
  ::user-clicked-logout
@@ -509,6 +550,20 @@
                     :on-failure [::form-not-created])}))
 
 (re-frame/reg-event-fx
+ ::initiated-form-update
+ (fn-traced [{:keys [db]} [event form-id]]
+            {:db (transition-edit-form-fsm db form-id event)
+             :http-xhrio
+             (assoc put-request
+                    :uri (old/form (old-model/old db)
+                                   (get-in db [:old-states (:old db)
+                                               :forms form-id :id]))
+                    :params (utils/->snake-case-recursive
+                             (form-model/edit-form db form-id))
+                    :on-success [::form-updated form-id]
+                    :on-failure [::form-not-updated form-id])}))
+
+(re-frame/reg-event-fx
  ::initiated-settings-update
  (fn-traced [{:keys [db]} [event]]
             {:db (transition-edited-settings-fsm db event)
@@ -542,6 +597,14 @@
                 invalidate-new-form-cache
                 (merge db/default-new-form-state)
                 (update-db-given-created-form new-form))))
+
+(re-frame/reg-event-db
+ ::form-updated
+ (fn-traced [db [event form-id updated-form]]
+            (-> db
+                (transition-edit-form-fsm form-id event)
+                (invalidate-edit-form-cache form-id)
+                (update-db-given-updated-form updated-form))))
 
 (re-frame/reg-event-db
  ::settings-updated
@@ -605,6 +668,19 @@
                                          v)) val)))
           (into {}))}))
 
+(defn- format-edit-form-server-validation-errors
+  [errors error]
+  (if error
+    {:edit-general-validation-error-message error}
+    (if (string? errors)
+      {:edit-general-validation-error-message errors}
+      {:edit-field-specific-validation-error-messages
+       (->> (utils/->kebab-case-recursive errors)
+            (map (juxt key (comp (fn [v] (if (coll? v)
+                                           (first v)
+                                           v)) val)))
+            (into {}))})))
+
 (re-frame/reg-event-db
  ::form-not-created
  (fn-traced [db [event {:as r :keys [status] {:keys [errors]} :response}]]
@@ -620,8 +696,33 @@
             (cond-> db
               :always
               (transition-new-form-fsm event)
+              (not= 400 status)
+              (assoc :system/error :form-not-created-unexpected-error)
               (and errors (= 400 status))
               (merge (format-new-form-server-validation-errors errors)))))
+
+(re-frame/reg-event-db
+ ::form-not-updated
+ (fn-traced [db [event form-id {:as r :keys [status]
+                                {:keys [error errors]} :response}]]
+            (let [error-response? (and (or errors error) (= 400 status))]
+              (when-not error-response?
+                (warn "OLD server returned an unexpected response to a PUT /forms/ID request:")
+                (pprint/pprint r))
+              (when error-response?
+                (warn "Server validation errors")
+                (pprint/pprint
+                 (format-edit-form-server-validation-errors errors error)))
+              (cond-> db
+                :always
+                (transition-edit-form-fsm form-id event)
+                (not error-response?)
+                (assoc :system/error :form-not-updated-unexpected-error)
+                error-response?
+                (update-in
+                 [:old-states (:old db) :forms/view-state form-id]
+                 merge
+                 (format-edit-form-server-validation-errors errors error))))))
 
 (defn- format-new-settings-server-validation-errors
   "Unfortunately, the OLD's validation responses are not very regular. We
@@ -670,14 +771,26 @@
                     :on-success [::form-fetched]
                     :on-failure [::form-not-fetched form-id])}))
 
+(defn- maybe-cached-page
+  "Return a map containing the UUIDs of the forms matching the page and
+  items-per-page inputs. The form UUIDs are under the :form-uuids key of the
+  returned map. Return nil if there is no cache for this page."
+  [db page items-per-page]
+  (when-let [cached-page (get-in db [:forms-paginator/cache
+                                     {:page page
+                                      :items-per-page items-per-page}])]
+    (let [cached-page-form-uuids (:form-uuids cached-page)
+          forms (select-keys (get-in db [:old-states (:old db) :forms])
+                             cached-page-form-uuids)]
+      (when (= (count cached-page-form-uuids) (count forms))
+        cached-page))))
+
 (re-frame/reg-event-fx
  ::fetch-forms-page
  (fn-traced [{:keys [db]} [_ page items-per-page]]
             (let [items-per-page (js/parseInt items-per-page)]
-              (if-let [cached-page
-                       (get-in db [:forms-paginator/cache
-                                   {:page page
-                                    :items-per-page items-per-page}])]
+              (if-let [cached-page (maybe-cached-page db page items-per-page)]
+                ;; We have the page cached, so use the in-memory forms
                 (let [first-form (min (inc (:forms-paginator/count db))
                                       (max 0 (- (* page items-per-page)
                                                 (dec items-per-page))))]
@@ -928,8 +1041,9 @@
                   forms-view-state (forms->view-states forms db)]
               (-> db
                   (update-in [:old-states (:old db) :forms] merge forms)
+                  ;; utils/flipmerge means existing view state trumps new
                   (update-in [:old-states (:old db) :forms/view-state]
-                             merge forms-view-state)
+                             utils/flipmerge forms-view-state)
                   prune-caches))))
 
 (re-frame/reg-event-db
@@ -942,8 +1056,9 @@
                           forms-paginator/current-page]} paginator]
               (-> db
                   (update-in [:old-states (:old db) :forms] merge forms)
+                  ;; utils/flipmerge means existing view state trumps new
                   (update-in [:old-states (:old db) :forms/view-state]
-                             merge forms-view-state)
+                             utils/flipmerge forms-view-state)
                   (assoc-in [:forms-paginator/cache {:page current-page
                                                      :items-per-page items-per-page}]
                             {:form-uuids current-page-forms
@@ -1062,6 +1177,99 @@
                  :forms-paginator/last-page last-page)
       :fx [[:dispatch [::navigate route]]]})))
 
+;; "Edit Form" interface events
+
+;; Register event handlers for all "Edit Form" "user changed"" events (except
+;; translations, which are special)
+(doseq [k form-model/editable-keys :when (not= k :translations)]
+  (re-frame/reg-event-db
+   (keyword "dativerf.events" (str "user-changed-edit-form-" (name k)))
+   (fn-traced [db [_ form-id v]]
+              (-> db
+                  (assoc-in [:old-states (:old db) :forms/view-state form-id
+                             :edit-state k] v)
+                  (transition-edit-form-fsm form-id ::user-changed-edit-form-data)
+                  (invalidate-edit-form-cache form-id)))))
+
+(doseq [k [:transcription :grammaticality]]
+  (re-frame/reg-event-db
+   (keyword "dativerf.events"
+            (str "user-changed-edit-form-translation-" (name k)))
+   (fn-traced [db [_ i form-id v]]
+              (-> db
+                  (assoc-in [:old-states (:old db) :forms/view-state form-id
+                             :edit-state :translations i k] v)
+                  (transition-edit-form-fsm form-id ::user-changed-edit-form-data)
+                  (invalidate-edit-form-cache form-id)))))
+
+(re-frame/reg-event-fx
+ ::user-clicked-update-form-button
+ (fn-traced [{:keys [db]} [_ form-id]]
+            {:dispatch (if (form-specs/write-form-valid? (form-model/edit-form db form-id))
+                         [::initiated-form-update form-id]
+                         [::edit-form-data-invalid form-id])}))
+
+(doseq [[event key]
+        {::user-clicked-export-form-button :export-interface-visible?
+         ::user-clicked-toggle-secondary-edit-form-fields :edit-secondary-fields-visible?}]
+  (register-form-toggler
+   event
+   (fn [{:keys [old]} form-id] [:old-states old :forms/view-state form-id key])))
+
+(re-frame/reg-event-db
+ ::user-clicked-edit-form-button
+ (fn-traced [db [_ form-id]]
+            (update-in
+             db
+             [:old-states (:old db) :forms/view-state form-id]
+             (fn [state]
+               (-> state
+                   (update :edit-interface-visible? not)
+                   (update :edit-state
+                           (fn [edit-state]
+                             (if (empty? edit-state)
+                               (-> db
+                                   (get-in [:old-states (:old db) :forms form-id])
+                                   form-model/read-form->write-form)
+                               edit-state))))))))
+
+(re-frame/reg-event-db
+ ::user-clicked-add-new-translation-button-to-edit-form
+ (fn-traced [db [_ form-id]]
+            (update-in
+             db
+             [:old-states (:old db) :forms/view-state form-id :edit-state :translations]
+             conj
+             {:transcription "" :grammaticality ""})))
+
+(re-frame/reg-event-db
+ ::user-clicked-remove-translation-button-from-edit-form
+ (fn-traced [db [_ index form-id]]
+            (update-in
+             db
+             [:old-states (:old db) :forms/view-state form-id :edit-state :translations]
+             (fn [translations]
+               (->> translations
+                    (map vector (range))
+                    (filter (fn [[idx]] (not= index idx)))
+                    (map second)
+                    vec)))))
+
+(re-frame/reg-event-db
+ ::user-clicked-help-editing-existing-form
+ ;; TODO
+ (fn-traced [_db _]))
+
+(re-frame/reg-event-db
+ ::user-clicked-clear-edit-form-interface
+ (fn-traced [db [_ form-id]]
+            (assoc-in
+             db
+             [:old-states (:old db) :forms/view-state form-id :edit-state]
+             (-> db
+                 (get-in [:old-states (:old db) :forms form-id])
+                 form-model/read-form->write-form))))
+
 ;; "New Form" interface events
 
 ;; Register event handlers for all "New Form" interface events (except
@@ -1144,11 +1352,6 @@
                       (assoc-in [:settings/edited-settings k] value)
                       (transition-edited-settings-fsm ::user-changed-edited-settings-data)
                       invalidate-edited-settings-cache)))))
-
-(register-form-toggler
- ::user-clicked-export-form-button
- (fn [{:keys [old]} form-id]
-   [:old-states old :forms/view-state form-id :export-interface-visible?]))
 
 (re-frame/reg-event-db
  ::user-clicked-delete-form-button
