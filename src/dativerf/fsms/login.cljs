@@ -5,7 +5,7 @@
    {:dativerf.events/password-invalidated-login ::requires-password
     :dativerf.events/username-invalidated-login ::requires-username
     :dativerf.events/initiated-authentication ::is-authenticating
-    :dativerf.events/no-op ::is-ready}
+    :dativerf.events/login-no-op ::is-ready}
    ::requires-username
    {:dativerf.events/user-changed-username ::is-ready}
    ::requires-password

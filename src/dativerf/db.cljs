@@ -115,7 +115,13 @@
       (merge default-new-form-state)))
 
 (defn default-form-view-state [{:as _db :keys [forms/expanded?]}]
-  {:expanded? expanded?
+  {:edit-field-specific-validation-error-messages {}
+   :edit-fsm-state :dativerf.fsms.edit-form/ready
+   :edit-general-validation-error-message nil
+   :edit-interface-visible? false
+   :edit-secondary-fields-visible? false
+   :edit-state {}
+   :expanded? expanded?
    :export-interface-visible? false
    :export-format :plain-text})
 

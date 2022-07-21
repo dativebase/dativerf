@@ -5,6 +5,7 @@
             [dativerf.subs :as subs]
             [dativerf.exporters.form :as form-exporter]
             [dativerf.utils :as utils]
+            [dativerf.views.forms.new-edit :as new-edit]
             [dativerf.views.widgets :as widgets]
             [re-frame.core :as re-frame]
             [re-com.core :as re-com :refer [at]]))
@@ -17,10 +18,21 @@
    :size :smaller
    :tooltip (if @(re-frame/subscribe [::subs/form-export-interface-visible? form-id])
               "hide export interface"
-              "show export interface")
+              "export this form")
    :on-click (fn [_]
                (re-frame/dispatch
                 [::events/user-clicked-export-form-button form-id]))])
+
+(defn edit-button [form-id]
+  [re-com/md-circle-icon-button
+   :md-icon-name "zmdi-edit"
+   :size :smaller
+   :tooltip (if @(re-frame/subscribe [::subs/form-edit-interface-visible? form-id])
+              "hide the update interface"
+              "update this form")
+   :on-click (fn [_]
+               (re-frame/dispatch
+                [::events/user-clicked-edit-form-button form-id]))])
 
 (defn collapse-button [form-id]
   [re-com/md-circle-icon-button
@@ -223,8 +235,8 @@
     [re-com/v-box
      :max-width form-value-width
      :children
-     (for [{:keys [id grammaticality transcription]} translations]
-       ^{:key (str form-id "-" id)}
+     (for [[idx {:keys [grammaticality transcription]}] (map vector (range) translations)]
+       ^{:key (str form-id "-" idx)}
        [re-com/box :child (str grammaticality transcription)])]]])
 
 (defn secondary-scalar
@@ -359,14 +371,15 @@
    [[collapse-button form-id]
     [export-button form-id]]])
 
-(defn header-right [{form-id :id}]
+(defn header-right [{form-uuid :uuid form-id :id}]
   [re-com/h-box
    :src (at)
    :gap "5px"
    :size "auto"
    :justify :end
    :children
-   [[delete-form-button form-id]]])
+   [[edit-button form-uuid]
+    [delete-form-button form-id]]])
 
 (defn header [form]
   [re-com/h-box
@@ -401,8 +414,10 @@
   (when @(re-frame/subscribe [::subs/form-expanded? form-id])
     [re-com/v-box
      :class (styles/default)
+     :gap "10px"
      :children
      [[header form]
+      [new-edit/interface form]
       [igt-form-export-interface form]]]))
 
 (defn igt-form-secondary

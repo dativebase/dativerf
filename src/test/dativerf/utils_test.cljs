@@ -56,3 +56,15 @@
                             ["[a]" "a"]
                             ["[[a]]" "[a]"]]]
     (t/is (= expected (sut/remove-enclosing-brackets input)))))
+
+(t/deftest flip-merge-works
+  (doseq [[f inputs expected]
+          [[merge
+            [{:a 2 :b 3}
+             {:a "k" :c 4}]
+            {:a "k" :b 3 :c 4}]
+           [sut/flipmerge
+            [{:a 2 :b 3}
+             {:a "k" :c 4}]
+            {:a 2 :b 3 :c 4}]]]
+    (t/is (= expected (apply f inputs)))))

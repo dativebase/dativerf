@@ -450,13 +450,13 @@
       (do (re-frame/dispatch [::events/turn-off-force-forms-reload])
           (re-frame/dispatch [::events/fetch-forms-page page
                               @(re-frame/subscribe [::subs/forms-items-per-page])])
-          [re-com/throbber :size :large])
+          [re-com/throbber])
       (or (zero? forms-count)
           (and (= page current-page) (= (count form-ids) (count forms))))
       [forms-tab]
       :else
       (do (re-frame/dispatch [::events/fetch-forms-page page items-per-page])
-          [re-com/throbber :size :large]))))
+          [re-com/throbber]))))
 
 (defmethod routes/tabs :forms-last-page [_]
   (let [last-page @(re-frame/subscribe [::subs/forms-last-page])
@@ -464,18 +464,18 @@
     (cond force-reload?
           (do (re-frame/dispatch [::events/fetch-forms-last-page])
               (re-frame/dispatch [::events/turn-off-force-forms-reload])
-              [re-com/throbber :size :large])
+              [re-com/throbber])
           last-page
           (re-frame/dispatch
            [::events/navigate
             (assoc-in (forms-page-route) [:route-params :page] last-page)])
           :else
           (do (re-frame/dispatch [::events/fetch-forms-last-page])
-              [re-com/throbber :size :large]))))
+              [re-com/throbber]))))
 
 (defmethod routes/tabs :form-page [{{:keys [id]} :route-params}]
   (if-let [form @(re-frame/subscribe [::subs/form-by-int-id (js/parseInt id)])]
     [form-tab form]
     (do
       (re-frame/dispatch [::events/fetch-form id])
-      [re-com/throbber :size :large])))
+      [re-com/throbber])))

@@ -173,3 +173,9 @@
 (defn seconds-ago [t]
   (try (time/in-seconds (time/interval t (time/now)))
        (catch js/Error _ 0)))
+
+(defn flip [f]
+  (fn [& xs]
+    (apply f (reverse xs))))
+
+(def flipmerge (flip merge))

@@ -62,12 +62,18 @@
               elicited/tested/verified with a consultant or “requires testing”
               for data that are posited and still need testing/elicitation."}})
 
+(defn stringify-date [date]
+  (when date (utils/goog-date-utc-date-time->mm-dd-yyyy-string date)))
+
 (defn new-form [db]
   (-> (utils/select-keys-by-ns "new-form" db)
       utils/remove-namespaces-recursive
-      (update :date-elicited
-              (fn [de] (when de
-                         (utils/goog-date-utc-date-time->mm-dd-yyyy-string de))))))
+      (update :date-elicited stringify-date)))
+
+(defn edit-form [db form-id]
+  (-> db
+      (get-in [:old-states (:old db) :forms/view-state form-id :edit-state])
+      (update :date-elicited stringify-date)))
 
 (def new-form-validation-message
   (str "A form must have at least one transcription-type value (transcription,"
@@ -105,12 +111,18 @@
                          "The supplied value is invalid."))))
        (into {})))
 
+(defn- parse-nilable-date-string [date-string]
+  (when date-string (utils/parse-date-string date-string)))
+
 (defn parse-form [form]
   (-> form
-      (update :date-elicited utils/date-string?)
+      (update :date-elicited parse-nilable-date-string)
       (update :datetime-entered utils/datetime-string?)
       (update :datetime-modified utils/datetime-string?)
-      (update :uuid uuid)))
+      (update :uuid uuid)
+      (update :translations (fn [translations]
+                              (mapv (fn [tr] (dissoc tr :id))
+                                    translations)))))
 
 (defn process-forms-new-response
   "Validate a GET forms/new response fetched from the OLD."
@@ -141,6 +153,7 @@
    :elicitation-method
    :elicitor
    :files
+   :grammaticality
    :morpheme-break
    :morpheme-gloss
    :narrow-phonetic-transcription
@@ -156,3 +169,17 @@
    :transcription
    :translations
    :verifier])
+
+(defn- resource->maybe-id [resource] (some-> resource :id))
+
+(defn read-form->write-form [read-form]
+  (-> read-form
+      (select-keys editable-keys)
+      (update :elicitation-method resource->maybe-id)
+      (update :elicitor resource->maybe-id)
+      (update :source resource->maybe-id)
+      (update :speaker resource->maybe-id)
+      (update :syntactic-category resource->maybe-id)
+      (update :verifier resource->maybe-id)
+      (update :tags (fn [tags] (set (map :id tags))))
+      (update :files (fn [files] (set (map :id files))))))

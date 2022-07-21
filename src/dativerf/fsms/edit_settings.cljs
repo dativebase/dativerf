@@ -4,7 +4,7 @@
   {::ready
    {:dativerf.events/edited-settings-data-invalid ::invalid
     :dativerf.events/initiated-settings-update ::updating
-    :dativerf.events/no-op ::ready}
+    :dativerf.events/edited-settings-no-op ::ready}
    ::invalid
    {:dativerf.events/user-changed-edited-settings-data ::ready}
    ::updating

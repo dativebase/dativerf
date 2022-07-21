@@ -4,7 +4,7 @@
   {::ready
    {:dativerf.events/new-form-data-invalid ::invalid
     :dativerf.events/initiated-form-creation ::creating
-    :dativerf.events/no-op ::ready}
+    :dativerf.events/new-form-no-op ::ready}
    ::invalid
    {:dativerf.events/user-changed-new-form-data ::ready}
    ::creating
