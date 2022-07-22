@@ -94,7 +94,9 @@
                                   [:new-form/state])))
     [re-com/alert-box
      :alert-type :danger
-     :heading "Invalid Form (Update Failed)"
+     :heading (if uuid
+                "Invalid Form (Update Failed)"
+                "Invalid Form")
      :body @(re-frame/subscribe (if uuid
                                   [::subs/form-edit-general-validation-error-message uuid]
                                   [:new-form/general-validation-error-message]))]))
@@ -419,7 +421,7 @@
 
 (defn- grammaticality-translation [index form]
   [labeled-el
-   (when (zero? index) (if form :edit-form/translations :new-form/translations))
+   (when (zero? index) :translations)
    [re-com/h-box
     :gap "10px"
     :children
@@ -551,6 +553,8 @@
              [toggle-secondary-inputs-button form]]}))
 
 (defn interface
+  "A nil form indicates the interface is for creating a new form. A non-nil form
+  indicates the interface is for editing an existing form."
   ([] (interface nil))
   ([form]
    (when @(re-frame/subscribe

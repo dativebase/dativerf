@@ -7,7 +7,7 @@
             [dativerf.subs :as subs]
             [dativerf.utils :as utils]
             [dativerf.views.form :as form]
-            [dativerf.views.forms.new :as forms-new]
+            [dativerf.views.forms.new-edit :as new-edit]
             [dativerf.views.forms.settings :as forms-settings]
             [dativerf.exporters.forms :as forms-exporter]
             [dativerf.views.widgets :as widgets]))
@@ -413,7 +413,7 @@
    :children
    [[browse-navigation]
     [forms-settings/interface]
-    [forms-new/interface]
+    [new-edit/interface]
     [export-forms-interface]
     [forms-enumeration]
     [delete-form-modal]]])
