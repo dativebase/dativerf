@@ -5,6 +5,7 @@
    [dativerf.models.application-settings :as application-settings]
    [dativerf.models.form :as form-model]
    [dativerf.models.old :as old-model]
+   [dativerf.utils :as utils]
    [re-frame.core :as re-frame]))
 
 (defn- form-view-state [db form-id]
@@ -238,7 +239,8 @@
 (re-frame/reg-sub
  ::new-form-form-changed?
  (fn [db _]
-   (not= (form-model/new-form db) db/default-new-form-state)))
+   (not= (form-model/new-form db)
+         (utils/remove-namespaces-recursive db/default-new-form-state))))
 
 (doseq [key [:grammaticality
              :transcription]]
