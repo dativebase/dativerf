@@ -3,8 +3,8 @@
             [dativerf.specs.common :as common]))
 
 (s/def ::id ::common/id)
-(s/def ::first-name (partial common/string-max-len? 255))
-(s/def ::last-name (partial common/string-max-len? 255))
+(s/def ::first-name ::common/non-blank-string-lte-255)
+(s/def ::last-name ::common/non-blank-string-lte-255)
 (s/def ::role #{"administrator" "contributor" "viewer"})
 (s/def ::mini-user (s/keys :req-un [::id
                                     ::first-name

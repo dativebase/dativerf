@@ -21,12 +21,12 @@
     "video/x-ms-wmv"})
 
 (s/def ::id ::common/id)
-(s/def ::name (partial common/string-max-len? 255))
-(s/def ::filename (partial common/string-max-len? 255))
-(s/def ::mime-type (partial common/string-max-len? 255))
+(s/def ::name ::common/string-lte-255)
+(s/def ::filename ::common/non-blank-string-lte-255)
+(s/def ::mime-type ::common/string-lte-255)
 (s/def ::size nat-int?)
-(s/def ::url (partial common/string-max-len? 255))
-(s/def ::lossy-filename (partial common/string-max-len? 255))
+(s/def ::url ::common/non-blank-string-lte-255)
+(s/def ::lossy-filename ::common/non-blank-string-lte-255)
 (s/def ::mini-file (s/keys :req-un [::id
                                     ::name
                                     ::filename

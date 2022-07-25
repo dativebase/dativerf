@@ -48,6 +48,8 @@
 
 (defn ->pretty-json [x] (.stringify js/JSON (clj->js x) nil 2))
 
+(defn ->json [x] (.stringify js/JSON (clj->js x)))
+
 (defn set-kw-ns [ns kw] (->> kw name (keyword ns)))
 
 (defn select-keys-by-ns [ns m]

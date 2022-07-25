@@ -47,7 +47,9 @@
   which takes a form as input and returns a sequence of maps, each representing
   an IGT line. The concepts of lines and rows, as described above, is used
   throughout the implementation."
-  (:require [clojure.string :as str]))
+  (:require [clojure.spec.alpha :as s]
+            [clojure.string :as str]
+            [dativerf.specs.common :as common]))
 
 (def ^:private default-max-row-length 80)
 (def ^:private default-step 5)
@@ -204,14 +206,35 @@
        vals
        (sort-by igt-sorter)))
 
+
+(s/def :word/word ::common/non-blank-string)
+(s/def ::length pos-int?)
+(s/def ::word (s/keys :req-un [::length
+                               :word/word]))
+(s/def ::words (s/coll-of ::word :min-count 1))
+(s/def ::row nat-int?)
+(s/def ::key #{:transcription
+               :narrow-phonetic-transcription
+               :phonetic-transcription
+               :morpheme-break
+               :morpheme-gloss})
+(s/def ::indent nat-int?)
+(s/def ::line
+  (s/keys :req-un [::key
+                   ::indent
+                   ::row
+                   ::words]))
+(s/def ::igt-data (s/coll-of ::line :min-count 1))
+(def valid-igt-data? (partial s/valid? ::igt-data))
+
 (defn igt-data
-  "Given a form, return IGT data. The return value is an ordered list of line
-   maps. Each line map should have sufficient information to render (in
-   isolation) a single non-wrapping line of IGT. Each line contains keys for the
-   :key (i.e., the field, e.g., :transcription) how much to :indent the line,
-   which :row the line is a part of, and the sequence of :words in the line.
-   Each word has keys for :length (int) and a :word (str). Example output for
-   form {:transcription the}:
+  "Given a form, return IGT data. The return value is a valid ::igt-data. It is
+   an ordered list of line maps. Each line map should have sufficient
+   information to render (in isolation) a single non-wrapping line of IGT. Each
+   line contains keys for the :key (i.e., the field, e.g., :transcription) how
+   much to :indent the line, which :row the line is a part of, and the sequence
+   of :words in the line. Each word has keys for :length (int) and a :word
+   (str). Example output for form {:transcription the}:
 
      ({:key :transcription
        :indent 0
