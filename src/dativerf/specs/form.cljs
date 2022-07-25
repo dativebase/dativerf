@@ -16,14 +16,20 @@
             [goog.string :as gstring]
             [goog.string.format]))
 
-;; TODO: this ns is called form but there are specs for all types of resources
-;; in here.
+(s/def :form/id ::common/id)
 
-(defn uuid-string? [x]
-  (and (string? x)
-       (re-find #"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-                x)))
-(s/def ::uuid-string uuid-string?)
+;; Specs for morpheme-break-ids and morpheme-gloss-ids. We use the namespace
+;; :ref because these are for cross-references between forms.
+(s/def :ref/morpheme (s/tuple :form/id ::common/non-blank-string ::tag/name))
+(s/def :ref/morphemes (s/coll-of :ref/morpheme :kind vector?))
+(s/def :ref/word (s/coll-of :ref/morphemes
+                         :kind vector?
+                         :min-count 1))
+(s/def :ref/phrase (s/coll-of :ref/word
+                           :kind vector?
+                           :min-count 1))
+
+;; Translation spec
 
 (s/def :translation/id ::common/id)
 (s/def :translation/transcription string?)
@@ -37,18 +43,17 @@
 
 (s/def :form/tags ::tag/tags)
 (s/def :form/date-elicited (s/nilable ::common/date-string))
-(s/def :form/narrow-phonetic-transcription string?)
+(s/def :form/narrow-phonetic-transcription (s/nilable ::common/string-lte-510))
 (s/def :form/enterer (s/nilable ::user/mini-user))
 ;; TODO: datetime-entered should not be nilable, but OLDs do have forms with a
 ;; nil value here...
 (s/def :form/datetime-entered (s/nilable ::common/datetime-string))
 (s/def :form/verifier (s/nilable ::user/mini-user))
-(s/def :form/break-gloss-category string?)
+(s/def :form/break-gloss-category ::common/string-lte-1023)
 (s/def :form/modifier (s/nilable ::user/mini-user))
 (s/def :form/syntactic-category (s/nilable ::syntactic-category/mini-syntactic-category))
 (s/def :form/speaker-comments string?)
-;; TODO: better spec for morpheme-gloss-ids
-(s/def :form/morpheme-gloss-ids (s/nilable (s/coll-of any?)))
+(s/def :form/morpheme-gloss-ids (s/nilable :ref/phrase))
 (s/def :form/semantics string?)
 (s/def :form/comments string?)
 (s/def :form/source (s/nilable ::source/mini-source))
@@ -57,18 +62,16 @@
 (s/def :form/grammaticality string?)
 (s/def :form/status string?) ;; TODO: closed class?
 (s/def :form/syntax string?)
-(s/def :form/id ::common/id)
-(s/def :form/morpheme-gloss (s/nilable string?))
+(s/def :form/morpheme-gloss (s/nilable ::common/string-lte-510))
 (s/def :form/files ::file/mini-files)
 (s/def :form/elicitation-method (s/nilable ::elicitation-method/mini-elicitation-method))
 (s/def :form/datetime-modified ::common/datetime-string)
-(s/def :form/uuid ::uuid-string)
-(s/def :form/morpheme-break string?)
+(s/def :form/uuid ::common/uuid-string)
+(s/def :form/morpheme-break (s/nilable ::common/string-lte-510))
 (s/def :form/speaker (s/nilable ::speaker/mini-speaker))
-;; TODO: better spec for morpheme-break-ids
-(s/def :form/morpheme-break-ids (s/nilable (s/coll-of any?)))
-(s/def :form/phonetic-transcription string?)
-(s/def :form/transcription string?)
+(s/def :form/morpheme-break-ids (s/nilable :ref/phrase))
+(s/def :form/phonetic-transcription (s/nilable ::common/string-lte-510))
+(s/def :form/transcription ::common/string-lte-510)
 (s/def :form/elicitor (s/nilable ::user/mini-user))
 (s/def :form/translations ::translations)
 
@@ -104,6 +107,34 @@
                                :form/elicitor
                                :form/translations]))
 (s/def ::forms (s/coll-of ::form))
+
+;; IGT Form
+;; Intended for testing. It can be used to quickly generate forms that have just
+;; the fields needed for IGT.
+
+(s/def :non-blank/transcription ::common/non-blank-string-lte-510)
+(s/def :non-blank/narrow-phonetic-transcription ::common/non-blank-string-lte-510)
+(s/def :non-blank/phonetic-transcription ::common/non-blank-string-lte-510)
+(s/def :non-blank/morpheme-break ::common/non-blank-string-lte-510)
+(s/def :non-blank/morpheme-gloss ::common/non-blank-string-lte-510)
+(s/def ::igt-form
+  (s/and (s/keys :req-un [:form/narrow-phonetic-transcription
+                          :form/grammaticality
+                          :form/morpheme-gloss
+                          :form/morpheme-break
+                          :form/phonetic-transcription
+                          :form/transcription
+                          :form/translations])
+         (s/or :non-empty-transcription
+               (s/keys :req-un [:non-blank/transcription])
+               :non-empty-narrow-phonetic-transcription
+               (s/keys :req-un [:non-blank/narrow-phonetic-transcription])
+               :non-empty-phonetic-transcription
+               (s/keys :req-un [:non-blank/phonetic-transcription])
+               :non-empty-morpheme-break
+               (s/keys :req-un [:non-blank/morpheme-break])
+               :non-empty-morpheme-gloss
+               (s/keys :req-un [:non-blank/morpheme-gloss]))))
 
 (defn form-explain-data [form]
   (s/explain-data ::form form))
@@ -153,21 +184,19 @@
                       (gstring/format "%04d" y)))
                (gen/tuple (gen/choose 1 12) (gen/choose 1 31) (gen/choose 1800 2200)))))
 
-(defn- max-length [l string] (<= (count string) l))
-
 (s/def :write-form/grammaticality
   (s/with-gen string?
     #(gen/elements ["" "*" "?" "#"])))
 
-(s/def :write-form/transcription (s/and string? (partial max-length 510)))
-(s/def :write-form/phonetic-transcription (s/and string? (partial max-length 510)))
-(s/def :write-form/narrow-phonetic-transcription (s/and string? (partial max-length 510)))
-(s/def :write-form/morpheme-break (s/and string? (partial max-length 510)))
-(s/def :write-form/morpheme-gloss (s/and string? (partial max-length 510)))
+(s/def :write-form/transcription ::common/string-lte-510)
+(s/def :write-form/phonetic-transcription ::common/string-lte-510)
+(s/def :write-form/narrow-phonetic-transcription ::common/string-lte-510)
+(s/def :write-form/morpheme-break ::common/string-lte-510)
+(s/def :write-form/morpheme-gloss ::common/string-lte-510)
 (s/def :write-form/comments string?)
 (s/def :write-form/speaker-comments string?)
-(s/def :write-form/syntax (s/and string? (partial max-length 1023)))
-(s/def :write-form/semantics (s/and string? (partial max-length 1023)))
+(s/def :write-form/syntax ::common/string-lte-1023)
+(s/def :write-form/semantics ::common/string-lte-1023)
 (s/def :write-form/status #{"tested" "requires testing"})
 (s/def :write-form/elicitation-method (s/nilable ::common/id))
 (s/def :write-form/syntactic-category (s/nilable ::syntactic-category/id))

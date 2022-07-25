@@ -1,5 +1,10 @@
 (ns test.dativerf.utils.igt-test
+  {:clj-kondo/config '{:linters {:unresolved-symbol {:level :off}}}}
   (:require [cljs.test :as t :include-macros true]
+            [clojure.spec.alpha :as s]
+            [clojure.test.check.clojure-test :refer [defspec]]
+            [clojure.test.check.properties :as prop]
+            [dativerf.specs.form :as form-spec]
             [dativerf.utils.igt :as sut]))
 
 (def test-form-1
@@ -261,3 +266,7 @@
                 :morpheme-gloss "DET-PL dog-PL"}]
       (t/is (= 4 (count (sut/igt-data form {:max-row-length 8}))))
       (t/is (= 2 (count (sut/igt-data form {:max-row-length 80})))))))
+
+(defspec igt-data-works-for-all-valid-forms
+  (prop/for-all [form (s/gen ::form-spec/igt-form)]
+                (sut/valid-igt-data? (sut/igt-data form))))
