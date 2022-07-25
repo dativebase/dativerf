@@ -51,8 +51,8 @@
             [clojure.string :as str]
             [dativerf.specs.common :as common]))
 
-(def ^:private default-max-row-length 80)
-(def ^:private default-step 5)
+(def ^:private default-max-row-length 40)
+(def ^:private default-step 2)
 (def ^:private default-max-indent 20)
 
 (def ^:private igt-keys
