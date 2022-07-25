@@ -5,6 +5,7 @@
             [dativerf.subs :as subs]
             [dativerf.exporters.form :as form-exporter]
             [dativerf.utils :as utils]
+            [dativerf.utils.igt :as igt]
             [dativerf.views.forms.new-edit :as new-edit]
             [dativerf.views.widgets :as widgets]
             [re-frame.core :as re-frame]
@@ -209,23 +210,6 @@
    :padding "0 1em 0 0"
    :child label])
 
-(defn igt-transcription
-  [{:keys [attr transcription grammaticality left-enclose right-enclose]
-    :or {grammaticality "" left-enclose "" right-enclose ""}}]
-  (when (some #{(utils/set-kw-ns-to-form attr)}
-              @(re-frame/subscribe [::subs/visible-form-fields]))
-    [re-com/h-box
-     :src (at)
-     :children
-     [(when @(re-frame/subscribe [::subs/forms-labels-on?])
-        [igt-label (-> attr attrs :label)])
-      [re-com/box
-       :max-width form-value-width
-       :child
-       (if (or (seq grammaticality) (seq transcription))
-         (str left-enclose grammaticality transcription right-enclose)
-         "")]]]))
-
 (defn igt-translations [form-id translations]
   [re-com/h-box
    :src (at)
@@ -338,29 +322,45 @@
        :max-width form-value-width
        :child (str first-name " " last-name)]]]))
 
+(defn igt-words [form-id line-index words]
+  [re-com/h-box
+   :src (at)
+   :children
+   (for [[word-index {:keys [word length]}] (map vector (range) words)]
+     ^{:key (str "form-" form-id "-igt-line-" line-index "-word-" word-index)}
+     [:div
+      ;; Taking 80% of the length of the longest word as the em-width. This is
+      ;; problematic if the word is all "m" characters, but that is unlkely ...
+      {:style {:width (str (* 0.8 length) "em")}}
+      word])])
+
+(defn igt-line [form-id line-index {:keys [key indent words]}]
+  (when (some #{(utils/set-kw-ns-to-form key)}
+              @(re-frame/subscribe [::subs/visible-form-fields]))
+    [re-com/h-box
+     :src (at)
+     :children
+     [(when @(re-frame/subscribe [::subs/forms-labels-on?])
+        [igt-label (-> key attrs :label)])
+      [re-com/box
+       :width (str indent "em")
+       ;; The following is to force height on a line with empty string words.
+       ;; TODO: need a better solution here. This is just copying the height
+       ;; value of non-empty words.
+       :height "1.42857143em"
+       :child ""]
+      [igt-words form-id line-index words]]]))
+
 (defn igt-form-igt
-  [{:keys [grammaticality morpheme-break morpheme-gloss
-           narrow-phonetic-transcription phonetic-transcription transcription
-           translations uuid]}]
+  [{:as form form-id :uuid :keys [translations]}]
   [re-com/v-box
    :src (at)
    :children
-   [(when (seq narrow-phonetic-transcription)
-      [igt-transcription {:attr :narrow-phonetic-transcription
-                          :transcription narrow-phonetic-transcription}])
-    (when (seq phonetic-transcription)
-      [igt-transcription {:attr :phonetic-transcription
-                          :transcription phonetic-transcription}])
-    [igt-transcription {:attr :transcription
-                        :transcription transcription
-                        :grammaticality grammaticality}]
-    [igt-transcription {:attr :morpheme-break
-                        :transcription morpheme-break
-                        :left-enclose "/"
-                        :right-enclose "/"}]
-    [igt-transcription {:attr :morpheme-gloss
-                        :transcription morpheme-gloss}]
-    [igt-translations uuid translations]]])
+   (concat
+    (for [[line-index line] (map vector (range) (igt/igt-data form))]
+      ^{:key (str "form-" form-id "-igt-line-" line-index)}
+      [igt-line form-id line-index line])
+    [[igt-translations form-id translations]])])
 
 (defn header-left [{form-id :uuid}]
   [re-com/h-box
