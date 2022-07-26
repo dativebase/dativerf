@@ -221,7 +221,7 @@
      :children
      (for [[idx {:keys [grammaticality transcription]}] (map vector (range) translations)]
        ^{:key (str form-id "-" idx)}
-       [re-com/box :child (str grammaticality transcription)])]]])
+       [re-com/box :child (str "\u2018" grammaticality transcription "\u2019")])]]])
 
 (defn secondary-scalar
   [attr value]
