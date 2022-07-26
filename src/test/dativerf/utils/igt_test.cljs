@@ -1,6 +1,7 @@
 (ns test.dativerf.utils.igt-test
   {:clj-kondo/config '{:linters {:unresolved-symbol {:level :off}}}}
   (:require [cljs.test :as t :include-macros true]
+            [clojure.data :as data]
             [clojure.spec.alpha :as s]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :as prop]
@@ -30,25 +31,15 @@
      [{:length 10 :word "*Está"}
       {:length 10 :word "situada"}
       {:length 11 :word "no"}
-      {:length 5 :word "sul"}
-      {:length 11 :word "da"}
-      {:length 6 :word "Região"}
-      {:length 10 :word "Nordeste,"}
-      {:length 8 :word "fazendo"}
-      {:length 6 :word "limite"}]}
+      {:length 5 :word "sul"}]}
     {:key :morpheme-break
      :indent 0
      :row 0
      :words
-     [{:length 10 :word "Est-á"}
+     [{:length 10 :word "/Est-á"}
       {:length 10 :word "situa-da"}
       {:length 11 :word "em-o"}
-      {:length 5 :word "sul"}
-      {:length 11 :word "de-a"}
-      {:length 6 :word "Região"}
-      {:length 10 :word "Nord-este"}
-      {:length 8 :word "faz-endo"}
-      {:length 6 :word "limite"}]}
+      {:length 5 :word "sul"}]}
     {:key :morpheme-gloss
      :indent 0
      :row 0
@@ -56,185 +47,258 @@
      [{:length 10 :word "be-3SG.PRS"}
       {:length 10 :word "situate-PP"}
       {:length 11 :word "in-DET.M.SG"}
-      {:length 5 :word "south"}
-      {:length 11 :word "of-DET.F.SG"}
+      {:length 5 :word "south"}]}
+    {:key :transcription
+     :indent 2
+     :row 1
+     :words
+     [{:length 11 :word "da"}
+      {:length 6 :word "Região"}
+      {:length 10 :word "Nordeste,"}
+      {:length 8 :word "fazendo"}]}
+    {:key :morpheme-break
+     :indent 2
+     :row 1
+     :words
+     [{:length 11 :word "de-a"}
+      {:length 6 :word "Região"}
+      {:length 10 :word "Nord-este"}
+      {:length 8 :word "faz-endo"}]}
+    {:key :morpheme-gloss
+     :indent 2
+     :row 1
+     :words
+     [{:length 11 :word "of-DET.F.SG"}
       {:length 6 :word "region"}
       {:length 10 :word "north-east"}
-      {:length 8 :word "make-GER"}
-      {:length 6 :word "border"}]}
+      {:length 8 :word "make-GER"}]}
     {:key :transcription
-     :indent 5
-     :row 1
+     :indent 4
+     :row 2
      :words
-     [{:length 4 :word "com"}
+     [{:length 6 :word "limite"}
+      {:length 4 :word "com"}
       {:length 10 :word "outros"}
       {:length 5 :word "oito"}
-      {:length 10 :word "estados"}
-      {:length 15 :word "brasileiros"}
-      {:length 1 :word "-"}
-      {:length 10 :word "é"}
-      {:length 8 :word "o"}
-      {:length 6 :word "estado"}]}
+      {:length 10 :word "estados"}]}
     {:key :morpheme-break
-     :indent 5
-     :row 1
+     :indent 4
+     :row 2
      :words
-     [{:length 4 :word "com"}
+     [{:length 6 :word "limite"}
+      {:length 4 :word "com"}
       {:length 10 :word "outr-os"}
       {:length 5 :word "oito"}
-      {:length 10 :word "estad-os"}
-      {:length 15 :word "brasil-eir-os"}
-      {:length 1 :word "-"}
-      {:length 10 :word "é"}
-      {:length 8 :word "o"}
-      {:length 6 :word "estado"}]}
+      {:length 10 :word "estad-os"}]}
     {:key :morpheme-gloss
-     :indent 5
-     :row 1
+     :indent 4
+     :row 2
      :words
-     [{:length 4 :word "with"}
+     [{:length 6 :word "border"}
+      {:length 4 :word "with"}
       {:length 10 :word "other-M.PL"}
       {:length 5 :word "eight"}
-      {:length 10 :word "state-M.PL"}
-      {:length 15 :word "brazil-LOC-M.PL"}
+      {:length 10 :word "state-M.PL"}]}
+    {:key :transcription
+     :indent 6
+     :row 3
+     :words
+     [{:length 15 :word "brasileiros"}
+      {:length 1 :word "-"}
+      {:length 10 :word "é"}
+      {:length 8 :word "o"}]}
+    {:key :morpheme-break
+     :indent 6
+     :row 3
+     :words
+     [{:length 15 :word "brasil-eir-os"}
+      {:length 1 :word "-"}
+      {:length 10 :word "é"}
+      {:length 8 :word "o"}]}
+    {:key :morpheme-gloss
+     :indent 6
+     :row 3
+     :words
+     [{:length 15 :word "brazil-LOC-M.PL"}
       {:length 1 :word "-"}
       {:length 10 :word "be.3SG.PRS"}
-      {:length 8 :word "DET.M.SG"}
-      {:length 6 :word "state"}]}
+      {:length 8 :word "DET.M.SG"}]}
+    {:key :transcription
+     :indent 8
+     :row 4
+     :words
+     [{:length 6 :word "estado"}
+      {:length 15 :word "brasileiro"}
+      {:length 4 :word "que"}
+      {:length 4 :word "mais"}]}
+    {:key :morpheme-break
+     :indent 8
+     :row 4
+     :words
+     [{:length 6 :word "estado"}
+      {:length 15 :word "brasil-eir-o"}
+      {:length 4 :word "que"}
+      {:length 4 :word "mais"}]}
+    {:key :morpheme-gloss
+     :indent 8
+     :row 4
+     :words
+     [{:length 6 :word "state"}
+      {:length 15 :word "brazil-LOC-M.SG"}
+      {:length 4 :word "COMP"}
+      {:length 4 :word "more"}]}
     {:key :transcription
      :indent 10
-     :row 2
-     :words
-     [{:length 15 :word "brasileiro"}
-      {:length 4 :word "que"}
-      {:length 4 :word "mais"}
-      {:length 10 :word "faz"}
-      {:length 9 :word "divisas."}]}
+     :row 5
+     :words [{:length 10 :word "faz"} {:length 9 :word "divisas."}]}
     {:key :morpheme-break
      :indent 10
-     :row 2
-     :words
-     [{:length 15 :word "brasil-eir-o"}
-      {:length 4 :word "que"}
-      {:length 4 :word "mais"}
-      {:length 10 :word "faz"}
-      {:length 9 :word "divisa-s"}]}
+     :row 5
+     :words [{:length 10 :word "faz"} {:length 9 :word "divisa-s/"}]}
     {:key :morpheme-gloss
      :indent 10
-     :row 2
-     :words
-     [{:length 15 :word "brazil-LOC-M.SG"}
-      {:length 4 :word "COMP"}
-      {:length 4 :word "more"}
-      {:length 10 :word "do.3SG.PRS"}
-      {:length 9 :word "border-PL"}]}))
+     :row 5
+     :words [{:length 10 :word "do.3SG.PRS"} {:length 9 :word "border-PL"}]}))
 
 (def test-form-2-igt-data
-  '({:key :transcription
-     :indent 0
-     :row 0
+  '({:key :transcription,
+     :indent 0,
+     :row 0,
      :words
-     [{:length 6 :word "Les"}
-      {:length 7 :word "chiens"}
-      {:length 7 :word "qui"}
-      {:length 11 :word "étaient"}
-      {:length 8 :word "vraiment"}
-      {:length 11 :word "fatigués"}
-      {:length 3 :word "et"}
-      {:length 7 :word "qui"}
-      {:length 13 :word "avaient"}]}
-    {:key :morpheme-break
-     :indent 0
-     :row 0
+     [{:length 6, :word "Les"}
+      {:length 7, :word "chiens"}
+      {:length 7, :word "qui"}
+      {:length 11, :word "étaient"}
+      {:length 8, :word "vraiment"}]}
+    {:key :morpheme-break,
+     :indent 0,
+     :row 0,
      :words
-     [{:length 6 :word "le-s"}
-      {:length 7 :word "chien-s"}
-      {:length 7 :word "qui"}
-      {:length 11 :word "ét-ai-ent"}
-      {:length 8 :word "vraiment"}
-      {:length 11 :word "fatigu-é-s"}
-      {:length 3 :word "et"}
-      {:length 7 :word "qui"}
-      {:length 13 :word "av-ai-ent"}]}
-    {:key :morpheme-gloss
-     :indent 0
-     :row 0
+     [{:length 6, :word "/le-s"}
+      {:length 7, :word "chien-s"}
+      {:length 7, :word "qui"}
+      {:length 11, :word "ét-ai-ent"}
+      {:length 8, :word "vraiment"}]}
+    {:key :morpheme-gloss,
+     :indent 0,
+     :row 0,
      :words
-     [{:length 6 :word "DET-PL"}
-      {:length 7 :word "dog-PL"}
-      {:length 7 :word "REL.PRO"}
-      {:length 11 :word "be-IMPF-3PL"}
-      {:length 8 :word "really"}
-      {:length 11 :word "tire-PP-PL"}
-      {:length 3 :word "and"}
-      {:length 7 :word "REL.PRO"}
-      {:length 13 :word "have-IMPF-3PL"}]}
-    {:key :transcription
-     :indent 5
-     :row 1
+     [{:length 6, :word "DET-PL"}
+      {:length 7, :word "dog-PL"}
+      {:length 7, :word "REL.PRO"}
+      {:length 11, :word "be-IMPF-3PL"}
+      {:length 8, :word "really"}]}
+    {:key :transcription,
+     :indent 2,
+     :row 1,
      :words
-     [{:length 11 :word "mangé"}
-      {:length 4 :word "tous"}
-      {:length 8 :word "leur"}
-      {:length 9 :word "dîners"}
-      {:length 11 :word "étaient"}
-      {:length 3 :word "par"}
-      {:length 5 :word "terre"}
-      {:length 2 :word "à"}
-      {:length 11 :word "l'extérieur"}
-      {:length 2 :word "en"}]}
-    {:key :morpheme-break
-     :indent 5
-     :row 1
+     [{:length 11, :word "fatigués"}
+      {:length 3, :word "et"}
+      {:length 7, :word "qui"}
+      {:length 13, :word "avaient"}]}
+    {:key :morpheme-break,
+     :indent 2,
+     :row 1,
      :words
-     [{:length 11 :word "mang-é"}
-      {:length 4 :word "tous"}
-      {:length 8 :word "leur"}
-      {:length 9 :word "dîner-s"}
-      {:length 11 :word "ét-ai-ent"}
-      {:length 3 :word "par"}
-      {:length 5 :word "terre"}
-      {:length 2 :word "à"}
-      {:length 11 :word "l=extérieur"}
-      {:length 2 :word "en"}]}
-    {:key :morpheme-gloss
-     :indent 5
-     :row 1
+     [{:length 11, :word "fatigu-é-s"}
+      {:length 3, :word "et"}
+      {:length 7, :word "qui"}
+      {:length 13, :word "av-ai-ent"}]}
+    {:key :morpheme-gloss,
+     :indent 2,
+     :row 1,
      :words
-     [{:length 11 :word "eat-3SG.PRS"}
-      {:length 4 :word "all"}
-      {:length 8 :word "POSS.3PL"}
-      {:length 9 :word "dinner-PL"}
-      {:length 11 :word "be-IMPF-3PL"}
-      {:length 3 :word "LOC"}
-      {:length 5 :word "land"}
-      {:length 2 :word "at"}
-      {:length 11 :word "DET=outside"}
-      {:length 2 :word "in"}]}
-    {:key :transcription
-     :indent 10
-     :row 2
+     [{:length 11, :word "tire-PP-PL"}
+      {:length 3, :word "and"}
+      {:length 7, :word "REL.PRO"}
+      {:length 13, :word "have-IMPF-3PL"}]}
+    {:key :transcription,
+     :indent 4,
+     :row 2,
      :words
-     [{:length 13 :word "train"}
-      {:length 2 :word "de"}
-      {:length 9 :word "dormir"}
-      {:length 15 :word "tranquillement."}]}
-    {:key :morpheme-break
-     :indent 10
-     :row 2
+     [{:length 11, :word "mangé"}
+      {:length 4, :word "tous"}
+      {:length 8, :word "leur"}
+      {:length 9, :word "dîners"}]}
+    {:key :morpheme-break,
+     :indent 4,
+     :row 2,
      :words
-     [{:length 13 :word "train"}
-      {:length 2 :word "de"}
-      {:length 9 :word "dormir"}
-      {:length 15 :word "tranquille-ment"}]}
-    {:key :morpheme-gloss
-     :indent 10
-     :row 2
+     [{:length 11, :word "mang-é"}
+      {:length 4, :word "tous"}
+      {:length 8, :word "leur"}
+      {:length 9, :word "dîner-s"}]}
+    {:key :morpheme-gloss,
+     :indent 4,
+     :row 2,
      :words
-     [{:length 13 :word "the.course.of"}
-      {:length 2 :word "of"}
-      {:length 9 :word "sleep.INF"}
-      {:length 15 :word "calm-ADVZ"}]}))
+     [{:length 11, :word "eat-3SG.PRS"}
+      {:length 4, :word "all"}
+      {:length 8, :word "POSS.3PL"}
+      {:length 9, :word "dinner-PL"}]}
+    {:key :transcription,
+     :indent 6,
+     :row 3,
+     :words
+     [{:length 11, :word "étaient"}
+      {:length 3, :word "par"}
+      {:length 5, :word "terre"}
+      {:length 2, :word "à"}
+      {:length 11, :word "l'extérieur"}
+      {:length 2, :word "en"}]}
+    {:key :morpheme-break,
+     :indent 6,
+     :row 3,
+     :words
+     [{:length 11, :word "ét-ai-ent"}
+      {:length 3, :word "par"}
+      {:length 5, :word "terre"}
+      {:length 2, :word "à"}
+      {:length 11, :word "l=extérieur"}
+      {:length 2, :word "en"}]}
+    {:key :morpheme-gloss,
+     :indent 6,
+     :row 3,
+     :words
+     [{:length 11, :word "be-IMPF-3PL"}
+      {:length 3, :word "LOC"}
+      {:length 5, :word "land"}
+      {:length 2, :word "at"}
+      {:length 11, :word "DET=outside"}
+      {:length 2, :word "in"}]}
+    {:key :transcription,
+     :indent 8,
+     :row 4,
+     :words
+     [{:length 13, :word "train"}
+      {:length 2, :word "de"}
+      {:length 9, :word "dormir"}]}
+    {:key :morpheme-break,
+     :indent 8,
+     :row 4,
+     :words
+     [{:length 13, :word "train"}
+      {:length 2, :word "de"}
+      {:length 9, :word "dormir"}]}
+    {:key :morpheme-gloss,
+     :indent 8,
+     :row 4,
+     :words
+     [{:length 13, :word "the.course.of"}
+      {:length 2, :word "of"}
+      {:length 9, :word "sleep.INF"}]}
+    {:key :transcription,
+     :indent 10,
+     :row 5,
+     :words [{:length 16, :word "tranquillement."}]}
+    {:key :morpheme-break,
+     :indent 10,
+     :row 5,
+     :words [{:length 16, :word "tranquille-ment/"}]}
+    {:key :morpheme-gloss,
+     :indent 10,
+     :row 5,
+     :words [{:length 16, :word "calm-ADVZ"}]}))
 
 (t/deftest igt-data-works
   (t/testing "IGT data creation works as expected"
@@ -252,7 +316,7 @@
                {:key :morpheme-break
                 :indent 0
                 :row 0
-                :words [{:length 9 :word "walk-en"}]}
+                :words [{:length 9 :word "/walk-en/"}]}
                {:key :morpheme-gloss
                 :indent 0
                 :row 0

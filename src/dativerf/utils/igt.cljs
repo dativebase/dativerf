@@ -143,6 +143,16 @@
          words)]
     (conj rows current-row)))
 
+(def ^:private formatters
+  {:morpheme-break (fn [mb] (str "/" mb "/"))
+   :narrow-phonetic-transcription (fn [mb] (str "[" mb "]"))
+   :phonetic-transcription (fn [mb] (str "[" mb "]"))})
+
+(defn- format-form-entry [[k v]] ((get formatters k identity) v))
+
+(defn- format-form-entries [form]
+  (->> form (map (juxt key format-form-entry)) (into {})))
+
 (defn- igt-fields
   "Given a valid form map, return the sorted keys and values of its IGT-relevant
    fields. The return value is a 2-ary vector containing the keys and values.
@@ -169,6 +179,7 @@
     (->> (update non-empty-igt-form
                  grammaticality-field
                  (partial str grammaticality))
+         format-form-entries
          (sort-by (comp igt-sorter key))
          (reduce (fn [[ks vs] [k v]] [(conj ks k) (conj vs v)])
                  [[] []]))))
