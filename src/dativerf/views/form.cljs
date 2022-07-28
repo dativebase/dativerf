@@ -322,19 +322,74 @@
        :max-width form-value-width
        :child (str first-name " " last-name)]]]))
 
-(defn igt-words [form-id line-index words]
+(defn- word-width [word-length]
+  "Taking 80% of the length of the longest word as the em-width. This is
+   problematic if the word is all 'm' characters, but that is unlkely ..."
+  (str (* 0.8 word-length) "em"))
+
+;; TODO: this needs to come from the application settings.
+(defn- morpheme-splitter*
+  "Split a word into its morphemes and delimiters. Assumes delimiters can only be
+  the single-character strings = and -."
+  [word]
+  (->> word
+       (partition-by (fn [c] (some #{c} [\= \-])))
+       (map (partial apply str))))
+
+(defn- morpheme-tooltip [field morph-crossrefs]
+  (str (->> morph-crossrefs
+            (map (fn [[_ mg cat]] (str "\u2018" mg "\u2019 (" cat ")")))
+            (str/join "; "))
+       ". Click to view the morpheme(s) that match this "
+       (if (= field :morpheme-gloss) "shape" "gloss")))
+
+;; TODO: a lot (all?) of the analysis here (finding crossreferences, determining
+;; match type) could be done in the utils.igt namespace as a pure data
+;; transformation that is kept separate from the view/DOM construction.
+(defn- morpheme-referencing-word
+  [{:as form-data :keys [form-id field morpheme-break-ids morpheme-gloss-ids]}
+   {:as word-data :keys [length word index]}]
+  (let [morpheme-splitter morpheme-splitter* ;; TODO: this needs to come from the application settings.
+        [phrase-crossrefs phrase-counterparts]
+        (if (= :morpheme-gloss field)
+          [morpheme-gloss-ids morpheme-break-ids]
+          [morpheme-break-ids morpheme-gloss-ids])
+        crossrefs (or (some->> phrase-crossrefs (drop index) first) [])
+        counterparts (or (some->> phrase-counterparts (drop index) first) [])
+        morphemes (morpheme-splitter word)]
+    [:div {:style {:width (word-width length)}}
+     (for [[morph-idx morpheme] (map vector (range) morphemes)]
+       ^{:key (str "form-" form-id "-word-" index "-morpheme-" morph-idx)}
+       (if (even? morph-idx)
+         (let [crossref-idx (/ morph-idx 2)
+               morph-crossrefs (->> crossrefs (drop crossref-idx) first)
+               morph-counterparts (->> counterparts (drop crossref-idx) first)
+               match-type (cond (not (seq morph-crossrefs)) :none
+                                (= (set (map first morph-crossrefs))
+                                   (set (map first morph-counterparts))) :exact
+                                :else :partial)]
+           (if (= :none match-type)
+             [:span morpheme]
+             [:a {:href "#"
+                  :title (morpheme-tooltip field morph-crossrefs)
+                  :style {:color (if (= :partial match-type) :green :blue)}}
+              morpheme]))
+         [:span morpheme]))]))
+
+(defn igt-words
+  [{:as form-data :keys [form-id line-index morpheme-break-ids morpheme-gloss-ids]}
+   {:keys [words] field :key}]
   [re-com/h-box
    :src (at)
    :children
-   (for [[word-index {:keys [word length]}] (map vector (range) words)]
+   (for [[word-index {:as word-data :keys [word length]}]
+         (map vector (range) words)]
      ^{:key (str "form-" form-id "-igt-line-" line-index "-word-" word-index)}
-     [:div
-      ;; Taking 80% of the length of the longest word as the em-width. This is
-      ;; problematic if the word is all "m" characters, but that is unlkely ...
-      {:style {:width (str (* 0.8 length) "em")}}
-      word])])
+     (if (some #{field} [:morpheme-break :morpheme-gloss])
+       [morpheme-referencing-word (assoc form-data :field field) word-data]
+       [:div {:style {:width (word-width length)}} word]))])
 
-(defn igt-line [form-id line-index {:keys [key indent words]}]
+(defn igt-line [form-line-data {:as words-data :keys [key indent]}]
   (when (some #{(utils/set-kw-ns-to-form key)}
               @(re-frame/subscribe [::subs/visible-form-fields]))
     [re-com/h-box
@@ -349,17 +404,21 @@
        ;; value of non-empty words.
        :height "1.42857143em"
        :child ""]
-      [igt-words form-id line-index words]]]))
+      [igt-words form-line-data words-data]]]))
 
 (defn igt-form-igt
-  [{:as form form-id :uuid :keys [translations]}]
+  [{:as form form-id :uuid :keys [translations morpheme-break-ids
+                                  morpheme-gloss-ids]}]
   [re-com/v-box
    :src (at)
    :children
    (concat
     (for [[line-index line] (map vector (range) (igt/igt-data form))]
       ^{:key (str "form-" form-id "-igt-line-" line-index)}
-      [igt-line form-id line-index line])
+      [igt-line {:form-id form-id
+                 :line-index line-index
+                 :morpheme-break-ids morpheme-break-ids
+                 :morpheme-gloss-ids morpheme-gloss-ids} line])
     [[igt-translations form-id translations]])])
 
 (defn header-left [{form-id :uuid}]

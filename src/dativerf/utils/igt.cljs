@@ -126,21 +126,23 @@
         (reduce
          (fn [{:as agg
                {:as current-row :keys [indent] current-row-items :items}
-               :current-row} {:as word-meta :keys [length]}]
-           (if (empty? current-row-items)
-             (update-in agg [:current-row :items] conj word-meta)
-             (let [projected-length (+ length
-                                       indent
-                                       (apply + (map :length current-row-items)))]
-               (if (> projected-length max-row-length)
-                 (-> agg
-                     (update :rows conj current-row)
-                     (assoc :current-row {:indent (min max-indent (+ indent step))
-                                          :items [word-meta]}))
-                 (update-in agg [:current-row :items] conj word-meta)))))
+               :current-row}
+              [word-index {:as word-meta :keys [length]}]]
+           (let [word-meta (assoc word-meta :index word-index)]
+             (if (empty? current-row-items)
+               (update-in agg [:current-row :items] conj word-meta)
+               (let [projected-length (+ length
+                                         indent
+                                         (apply + (map :length current-row-items)))]
+                 (if (> projected-length max-row-length)
+                   (-> agg
+                       (update :rows conj current-row)
+                       (assoc :current-row {:indent (min max-indent (+ indent step))
+                                            :items [word-meta]}))
+                   (update-in agg [:current-row :items] conj word-meta))))))
          {:current-row {:indent 0 :items []}
           :rows []}
-         words)]
+         (map vector (range) words))]
     (conj rows current-row)))
 
 (def ^:private formatters
@@ -191,24 +193,28 @@
 
      [:morpheme-break :morpheme-gloss]
      0
-     {:indent 0 :items [{:length 6 :items (le-s DET-PL)}
-                        {:length 7, :items (chien-s dog-PL)}]}
+     {:indent 0 :items [{:length 6 :items (le-s DET-PL) :index 0}
+                        {:length 7, :items (chien-s dog-PL) :index 1}]}
 
    Since there are only two form attributes in this row, the output for the
    above is the following sequence of two lines:
 
      ({:key :morpheme-break :indent 0 :row 0
-       :words [{:length 6 :word le-s} {:length 7 :word chien-s}]}
+       :words [{:length 6 :word le-s :index 0}
+               {:length 7 :word chien-s :index 1}]}
       {:key :morpheme-gloss :indent 0 :row 0
-       :words [{:length 6, :word DET-PL} {:length 7, :word dog-PL}]})
+       :words [{:length 6, :word DET-PL :index 0}
+               {:length 7, :word dog-PL :index 1}]})
   "
   [igt-keys row-index {:keys [items indent]}]
   (->> items
        (reduce
-        (fn [lines {:keys [length] word-parts :items}]
+        (fn [lines {:keys [length] word-index :index word-parts :items}]
           (reduce
            (fn [agg [igt-key word]]
-             (update-in agg [igt-key :words] conj {:length length :word word}))
+             (update-in agg [igt-key :words] conj {:length length
+                                                   :word word
+                                                   :index word-index}))
            lines
            (zipmap igt-keys word-parts)))
         (zipmap igt-keys
@@ -217,11 +223,12 @@
        vals
        (sort-by igt-sorter)))
 
-
 (s/def :word/word ::common/non-blank-string)
+(s/def :word/index nat-int?)
 (s/def ::length pos-int?)
 (s/def ::word (s/keys :req-un [::length
-                               :word/word]))
+                               :word/word
+                               :word/index]))
 (s/def ::words (s/coll-of ::word :min-count 1))
 (s/def ::row nat-int?)
 (s/def ::key #{:transcription
@@ -250,7 +257,7 @@
      ({:key :transcription
        :indent 0
        :row 0
-       :words [{:length 3, :word the}]})
+       :words [{:length 3 :word the :index 0}]})
 
   The optional second argument is a map of options to control the max-row-length,
   the step (how much to indent each successive row), and the max-indent (the
